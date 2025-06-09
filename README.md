@@ -119,4 +119,4 @@ Todas las acciones que modifiquen el sistema o generen información relevante se
 ---
 ## 📜 Licencia
 
-Este proyecto está bajo la Licencia MIT. Consulta el archivo `LICENSE` para más detalles.
+Este proyecto está bajo la Licencia Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International. Consulta el archivo `LICENSE` para más detalles.
