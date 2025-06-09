@@ -1,0 +1,26 @@
+# Archivos de logs generados por la aplicación
+logs/
+
+# directorios de caché de Python
+__pycache__/
+.pytest_cache/
+
+# Archivos de bytecode de Python
+*.pyc
+*.pyo
+*.pyd
+
+# Entornos virtuales
+venv/
+env/
+.venv/
+
+# IDE y archivos específicos del editor
+.idea/  # Para PyCharm/IntelliJ
+.vscode/ # Para VS Code
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
