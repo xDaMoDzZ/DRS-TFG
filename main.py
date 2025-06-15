@@ -1,24 +1,23 @@
-#Lista de imports que vamos a utilizar
 import sys
 import os
 import ctypes
+
+# Importaciones de módulos principales
 from modules.disk import disk_partition_management
 from modules.docker import docker_management
 from modules.firewall import firewall_management
 from modules.network import network_management
 from modules.resource import resource_monitoring
 from modules.user import user_group_management
-from utils.display import clear_screen, print_menu, print_header, print_error, get_user_input
-from utils.system_info import get_os_type
 from modules.process import process_management
 from modules.services import service_management
 from modules.package import package_management
 
-# Importaciones de utilidades
+# Importaciones de utilidades (se consolida una sola vez)
 from utils.display import clear_screen, print_menu, print_header, print_error, get_user_input
 from utils.system_info import get_os_type
 
-#Comprobación de permisos
+# --- Comprobación de Permisos ---
 def is_admin():
     """
     Comprueba si el script se está ejecutando con privilegios de administrador/root.
@@ -57,12 +56,15 @@ def relaunch_as_admin():
         print("Asegúrese de ejecutar el script con los permisos necesarios manualmente.")
         sys.exit(1)
 
-#Función principal
+# --- Función Principal ---
 def main_menu():
+    """
+    Muestra el menú principal de la aplicación de administración de sistemas.
+    """
     while True:
         clear_screen()
         print_header(f"Administración de Sistemas ({get_os_type().capitalize()})")
-        #Menú que vamos a imprimir en pantalla
+        
         options = {
             "1": "Administración de Usuarios y Grupos",
             "2": "Administración de Redes",
@@ -78,7 +80,7 @@ def main_menu():
         print_menu(options)
 
         choice = get_user_input("Seleccione una opción")
-        #Lista de opciones
+        
         if choice == '1':
             user_group_management.user_group_menu()
         elif choice == '2':
@@ -104,9 +106,12 @@ def main_menu():
             print_error("Opción inválida. Por favor, intente de nuevo.")
             get_user_input("Presione Enter para continuar...")
 
+# --- Punto de Entrada del Script ---
 if __name__ == "__main__":
     if not is_admin():
         print("Detectado: No se está ejecutando como administrador/root.")
         relaunch_as_admin()
-        sys.exit(1) # Nos aseguramos de salir si hay un fallo inesperado en el relanzamiento
+        # En caso de fallo inesperado en el relanzamiento, nos aseguramos de salir.
+        # Si el relanzamiento es exitoso, el proceso original ya habrá salido.
+        sys.exit(1) 
     main_menu()
