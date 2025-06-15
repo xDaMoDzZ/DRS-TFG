@@ -1,6 +1,7 @@
 from utils.display import clear_screen, print_menu, print_header, print_info, print_success, print_error, get_user_input
 from utils.system_info import execute_command, get_os_type
 from utils.logger import log_action
+import os
 
 def package_menu():
     """
