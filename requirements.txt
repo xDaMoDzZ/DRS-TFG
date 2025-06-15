@@ -1,2 +1,3 @@
-ufw
-firewalld
+psutil
+gradio
+rich
