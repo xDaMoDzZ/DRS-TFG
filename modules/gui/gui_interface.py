@@ -184,17 +184,25 @@ def gui_remove_user_from_group(username: str, group_name: str):
     return _run_module_function(user_group_management.remove_user_from_group, username, group_name)
 
 ## Redes
-def gui_show_network_config():
-    return _run_module_function(network_management.show_network_config)
+def gui_view_ip_config():
+    return _run_module_function(network_management.view_ip_config)
 
-def gui_flush_dns_cache():
-    return _run_module_function(network_management.flush_dns_cache)
+def gui_configure_static_ip(interface_name: str, ip_address: str, subnet_mask: str, gateway: str, confirm_checkbox: bool):
+    confirm_input = 's' if confirm_checkbox else 'n'
+    return _run_module_function(network_management.configure_static_ip, interface_name, ip_address, subnet_mask, gateway, confirm_input)
 
-def gui_test_network_speed():
-    return _run_module_function(network_management.test_network_speed)
+def gui_toggle_interface_status(interface_name: str, action: str, confirm_checkbox: bool):
+    confirm_input = 's' if confirm_checkbox else 'n'
+    return _run_module_function(network_management.toggle_interface_status, interface_name, action, confirm_input)
 
-def gui_view_open_ports():
-    return _run_module_function(network_management.view_open_ports)
+def gui_view_routing_tables():
+    return _run_module_function(network_management.view_routing_tables)
+
+def gui_view_network_connections():
+    return _run_module_function(network_management.view_network_connections)
+
+def gui_generate_network_log():
+    return _run_module_function(network_management.generate_network_log)
 
 ## Monitorización de Recursos
 def gui_get_cpu_usage():
@@ -214,25 +222,40 @@ def gui_get_system_uptime():
 
 ## Disco y Particiones
 def gui_list_disk_partitions():
-    return _run_module_function(disk_partition_management.list_disk_partitions)
+    old_stdout = sys.stdout
+    redirected_output = io.StringIO()
+    sys.stdout = redirected_output
+    
+    try:
+        disk_partition_management.list_disks_partitions() # Calls the function that prints
+    finally:
+        sys.stdout = old_stdout # Ensures stdout is always restored
+
+    return redirected_output.getvalue() # Returns everything that was printed
 
 def gui_get_mount_points():
-    return _run_module_function(disk_partition_management.get_mount_points)
+    old_stdout = sys.stdout
+    redirected_output = io.StringIO()
+    sys.stdout = redirected_output
+    
+    try:
+        disk_partition_management.view_mounted_partition_usage() # Calls the function that prints
+    finally:
+        sys.stdout = old_stdout
 
-def gui_create_directory(path: str):
-    return _run_module_function(disk_partition_management.create_directory, path)
+    return redirected_output.getvalue()
 
-def gui_delete_file(path: str, confirm: bool):
-    confirm_str = 's' if confirm else 'n'
-    return _run_module_function(disk_partition_management.delete_file, path, confirm_str)
+def gui_generate_disk_log():
+    old_stdout = sys.stdout
+    redirected_output = io.StringIO()
+    sys.stdout = redirected_output
+    
+    try:
+        disk_partition_management.generate_disk_partition_log() # Calls the function that prints
+    finally:
+        sys.stdout = old_stdout
 
-def gui_delete_directory(path: str, confirm: bool):
-    confirm_str = 's' if confirm else 'n'
-    return _run_module_function(disk_partition_management.delete_directory, path, confirm_str)
-
-def gui_check_disk_health():
-    return _run_module_function(disk_partition_management.check_disk_health)
-
+    return redirected_output.getvalue()
 
 ## Firewall
 def gui_view_firewall_status():
@@ -328,30 +351,64 @@ def create_gradio_interface():
                 add_user_to_group_btn.click(gui_add_user_to_group, inputs=[user_group_user, user_group_group], outputs=output_user_group)
                 remove_user_from_group_btn.click(gui_remove_user_from_group, inputs=[user_group_user, user_group_group], outputs=output_user_group)
 
-
-        # --- Pestaña de Redes ---
+        # --- Pestaña de Redes (ACTUALIZADA) ---
         with gr.Tab("Redes"):
-            gr.Markdown("## Administración de Redes")
-            with gr.Accordion("Configuración de Red", open=True):
-                show_net_config_btn = gr.Button("Mostrar Configuración de Red")
-                output_net_config = gr.Markdown()
-                show_net_config_btn.click(gui_show_network_config, inputs=None, outputs=output_net_config)
+            gr.Markdown("## 🌐 Administración de Redes")
+            gr.Markdown("Gestiona y visualiza la configuración de red de tu sistema.")
 
-            with gr.Accordion("Vaciar Caché DNS", open=False):
-                flush_dns_btn = gr.Button("Vaciar Caché DNS")
-                output_flush_dns = gr.Markdown()
-                flush_dns_btn.click(gui_flush_dns_cache, inputs=None, outputs=output_flush_dns)
+            with gr.Accordion("Ver Configuración IP", open=True):
+                view_ip_config_btn = gr.Button("Ver Configuración IP")
+                output_ip_config = gr.Markdown()
+                view_ip_config_btn.click(gui_view_ip_config, inputs=None, outputs=output_ip_config)
+
+            with gr.Accordion("Configurar IP Estática", open=False):
+                gr.Markdown("### **¡ADVERTENCIA!** Esta operación requiere privilegios de administrador/root y es delicada. Úsela con precaución.")
+                
+                static_ip_interface_name = gr.Textbox(label="Nombre de Interfaz (ej. 'Ethernet', 'eth0')", placeholder="Campo obligatorio")
+                static_ip_address_input = gr.Textbox(label="Dirección IP (ej. 192.168.1.100)", placeholder="Campo obligatorio")
+                static_subnet_mask_input = gr.Textbox(label="Máscara de Subred (ej. 255.255.255.0)", placeholder="Campo obligatorio")
+                static_gateway_input = gr.Textbox(label="Puerta de Enlace (Opcional)", placeholder="Ej: 192.168.1.1")
+                
+                with gr.Row():
+                    confirm_static_ip = gr.Checkbox(label="Confirmar Configuración", info="Marque para aplicar la configuración de IP estática", scale=1)
+                    configure_static_ip_btn = gr.Button("Configurar IP Estática", scale=2)
+                output_configure_static_ip = gr.Markdown()
+                configure_static_ip_btn.click(
+                    gui_configure_static_ip, 
+                    inputs=[static_ip_interface_name, static_ip_address_input, static_subnet_mask_input, static_gateway_input, confirm_static_ip], 
+                    outputs=output_configure_static_ip
+                )
             
-            with gr.Accordion("Test de Velocidad de Red", open=False):
-                test_speed_btn = gr.Button("Realizar Test de Velocidad")
-                output_test_speed = gr.Markdown()
-                test_speed_btn.click(gui_test_network_speed, inputs=None, outputs=output_test_speed)
+            with gr.Accordion("Habilitar/Deshabilitar Interfaz", open=False):
+                gr.Markdown("### **¡ADVERTENCIA!** Esta operación requiere privilegios de administrador/root y puede interrumpir la conectividad. Úsela con precaución.")
+                
+                toggle_interface_name_input = gr.Textbox(label="Nombre de Interfaz (ej. 'Ethernet', 'eth0')", placeholder="Campo obligatorio")
+                toggle_action_radio = gr.Radio(choices=["habilitar", "deshabilitar"], label="Acción a realizar", value="habilitar")
+                
+                with gr.Row():
+                    confirm_toggle_interface = gr.Checkbox(label="Confirmar Acción", info="Marque para aplicar el cambio de estado de la interfaz", scale=1)
+                    toggle_interface_btn = gr.Button("Aplicar Cambio de Estado", scale=2)
+                output_toggle_interface = gr.Markdown()
+                toggle_interface_btn.click(
+                    gui_toggle_interface_status, 
+                    inputs=[toggle_interface_name_input, toggle_action_radio, confirm_toggle_interface], 
+                    outputs=output_toggle_interface
+                )
+            
+            with gr.Accordion("Ver Tablas de Enrutamiento", open=False):
+                view_routing_tables_btn = gr.Button("Ver Tablas de Enrutamiento")
+                output_routing_tables = gr.Markdown()
+                view_routing_tables_btn.click(gui_view_routing_tables, inputs=None, outputs=output_routing_tables)
 
-            with gr.Accordion("Ver Puertos Abiertos", open=False):
-                view_ports_btn = gr.Button("Ver Puertos Abiertos")
-                output_view_ports = gr.Markdown()
-                view_ports_btn.click(gui_view_open_ports, inputs=None, outputs=output_view_ports)
-
+            with gr.Accordion("Ver Conexiones de Red", open=False):
+                view_network_connections_btn = gr.Button("Ver Conexiones de Red")
+                output_network_connections = gr.Markdown()
+                view_network_connections_btn.click(gui_view_network_connections, inputs=None, outputs=output_network_connections)
+            
+            with gr.Accordion("Generar Log de Redes", open=False):
+                generate_network_log_btn = gr.Button("Generar Log de Redes")
+                output_generate_network_log = gr.Markdown()
+                generate_network_log_btn.click(gui_generate_network_log, inputs=None, outputs=output_generate_network_log)
 
         # --- Pestaña de Paquetes ---
         with gr.Tab("Paquetes"):
@@ -379,7 +436,6 @@ def create_gradio_interface():
                 search_package_btn = gr.Button("Buscar Paquete")
                 output_package_search = gr.Markdown()
                 search_package_btn.click(gui_search_package, inputs=[search_package_query], outputs=output_package_search)
-
 
         # --- Pestaña de Recursos ---
         with gr.Tab("Recursos"):
@@ -409,7 +465,6 @@ def create_gradio_interface():
                 output_uptime = gr.Markdown()
                 get_uptime_btn.click(gui_get_system_uptime, inputs=None, outputs=output_uptime)
 
-
         # --- Pestaña de Servicios ---
         with gr.Tab("Servicios"):
             gr.Markdown("## Administración de Servicios")
@@ -432,7 +487,6 @@ def create_gradio_interface():
                 restart_service_btn.click(gui_restart_service, inputs=[service_name_control], outputs=output_service_control)
                 enable_service_btn.click(gui_enable_service, inputs=[service_name_control], outputs=output_service_control)
                 disable_service_btn.click(gui_disable_service, inputs=[service_name_control], outputs=output_service_control)
-
 
         # --- Pestaña de Docker ---
         with gr.Tab("Docker"):
@@ -636,45 +690,24 @@ def create_gradio_interface():
         # --- Pestaña de Disco ---
         with gr.Tab("Disco"):
             gr.Markdown("## Administración de Disco y Particiones")
+            
             with gr.Accordion("Listar Discos y Particiones", open=True):
                 list_disk_parts_btn = gr.Button("Listar Discos y Particiones")
                 output_disk_parts = gr.Markdown()
                 list_disk_parts_btn.click(gui_list_disk_partitions, inputs=None, outputs=output_disk_parts)
-
-                get_mount_points_btn = gr.Button("Ver Puntos de Montaje")
+                get_mount_points_btn = gr.Button("Ver Uso de Particiones Montadas")
                 output_mount_points = gr.Markdown()
                 get_mount_points_btn.click(gui_get_mount_points, inputs=None, outputs=output_mount_points)
             
-            with gr.Accordion("Crear Directorio", open=False):
-                create_dir_path = gr.Textbox(label="Ruta del Nuevo Directorio (ej: /home/usuario/nueva_carpeta)")
-                create_dir_btn = gr.Button("Crear Directorio")
-                output_create_dir = gr.Markdown()
-                create_dir_btn.click(gui_create_directory, inputs=[create_dir_path], outputs=output_create_dir)
+            with gr.Accordion("Generar Log de Discos", open=False): # Nuevo acordeón para el log
+                generate_disk_log_btn = gr.Button("Generar Log de Discos")
+                output_generate_disk_log = gr.Markdown()
+                generate_disk_log_btn.click(gui_generate_disk_log, inputs=None, outputs=output_generate_disk_log)
 
-            with gr.Accordion("Eliminar Archivo", open=False):
-                delete_file_path = gr.Textbox(label="Ruta del Archivo a Eliminar (ej: /home/usuario/archivo.txt)")
-                confirm_delete_file = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación del archivo")
-                delete_file_btn = gr.Button("Eliminar Archivo")
-                output_delete_file = gr.Markdown()
-                delete_file_btn.click(gui_delete_file, inputs=[delete_file_path, confirm_delete_file], outputs=output_delete_file)
-            
-            with gr.Accordion("Eliminar Directorio (Recursivo)", open=False):
-                delete_dir_path = gr.Textbox(label="Ruta del Directorio a Eliminar (ej: /home/usuario/carpeta_a_eliminar)")
-                confirm_delete_dir = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación recursiva del directorio y su contenido")
-                delete_dir_btn = gr.Button("Eliminar Directorio")
-                output_delete_dir = gr.Markdown()
-                delete_dir_btn.click(gui_delete_directory, inputs=[delete_dir_path, confirm_delete_dir], outputs=output_delete_dir)
-            
-            with gr.Accordion("Comprobar Salud del Disco (S.M.A.R.T. en Linux)", open=False):
-                check_disk_health_btn = gr.Button("Comprobar Salud del Disco")
-                output_disk_health = gr.Markdown()
-                check_disk_health_btn.click(gui_check_disk_health, inputs=None, outputs=output_disk_health)
-
-
-        # --- Pestaña de Procesos (ya existente) ---
         # Este es el código que ya tenías para la pestaña de Procesos
         with gr.Tab("Procesos"): # Repetimos la pestaña de Procesos aquí para que esté ordenada
             gr.Markdown("## Administración de Procesos")
+            
             with gr.Accordion("Listar Procesos", open=True):
                 list_proc_btn = gr.Button("Listar Procesos")
                 output_proc_list = gr.Markdown()
