@@ -67,9 +67,22 @@ def main_menu():
     while True:
         clear_screen()
         print_header(f"Administración de Sistemas ({current_os.capitalize()})")
-        
-        # LIsta de opciones
-        options = {
+              
+        if current_os == 'linux':            
+            options = {
+            "1": "Administración de Usuarios y Grupos",
+            "2": "Administración de Redes",
+            "3": "Monitorización de Recursos",
+            "4": "Gestión de Particiones de Disco",
+            "5": "Gestión de Firewall",
+            "6": "Gestión de Procesos",
+            "7": "Gestión de Docker",
+            "8": "Gestión de Servicios/Daemons",
+            "9": "Gestión de Paquetes/Software",
+            "0": "Salir"
+        }
+        else:
+            options = {
             "1": "Administración de Usuarios y Grupos",
             "2": "Administración de Redes",
             "3": "Monitorización de Recursos",
@@ -79,11 +92,8 @@ def main_menu():
             "7": "Gestión de Docker",
             "8": "Gestión de Servicios/Daemons",
             "0": "Salir"
-        }
-
-        if current_os == 'linux':
-            options["9"] = "Gestión de Paquetes/Software"        
-        
+            }
+            
         print_menu(options)
 
         choice = get_user_input("Seleccione una opción")
