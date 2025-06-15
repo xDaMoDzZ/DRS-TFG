@@ -1,0 +1,34 @@
+#Lista de servicios a desplegar
+services:
+  web:
+    image: nginx:latest
+    container_name: simple_nginx_web
+    ports:
+      - "80:80"
+    volumes:
+      - nginx_logs:/var/log/nginx
+    networks:
+      - app_network
+    restart: always
+
+  backend:
+    image: python:3.9-slim-buster
+    container_name: simple_flask_backend
+    command: bash -c "pip install Flask && flask run --host=0.0.0.0"
+    environment:
+      FLASK_APP: app.py
+      FLASK_ENV: development
+    volumes:
+      - ./app.py:/app/app.py
+    networks:
+      - app_network
+    restart: on-failure
+
+#Adaptador de red
+networks:
+  app_network:
+    driver: bridge
+    
+#Volumenes
+volumes:
+  nginx_logs:
