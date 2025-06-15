@@ -108,14 +108,14 @@ def _format_windows_logical_disk_info(data: list[dict]) -> str:
         lines.append(f"{caption:<10} {file_system[:14]:<15} {total_size_gb:<20} {free_space_gb:<20}")
     return "\n".join(lines)
 
-#Listar particiones
 def list_disks_partitions():
-    clear_screen()
-    print_header("Listar Discos y Particiones")
+    """
+    Lista discos y particiones del sistema operativo.
+    La salida es impresa y capturada por la redirección de sys.stdout.
+    """
+    print_header("Listar Discos y Particiones") # Esta función ahora solo imprime
     os_type = get_os_type()
     
-    output_message = "" # Para acumular la salida en modo GUI
-
     if os_type == 'windows':
         print_info("Recopilando información de discos y particiones (Windows)...")
         commands = {
@@ -132,13 +132,9 @@ def list_disks_partitions():
             parsed_data = _parse_wmic_output(output_disk)
             formatted_output = _format_windows_disk_info(parsed_data)
             print_info("\n--- Discos Físicos ---")
-            if IS_GUI_MODE:
-                output_message += "### Discos Físicos\n```\n" + formatted_output + "\n```\n"
-            else:
-                print(formatted_output)
+            print("```\n" + formatted_output + "\n```") # Usamos print para la salida del comando
         else:
             print_error(f"Error al listar discos físicos: {output_disk}")
-            output_message += f"### Error al listar discos físicos:\n```\n{output_disk}\n```\n"
             all_status_ok = False
 
         # Particiones
@@ -147,13 +143,9 @@ def list_disks_partitions():
             parsed_data = _parse_wmic_output(output_partition)
             formatted_output = _format_windows_partition_info(parsed_data)
             print_info("\n--- Particiones ---")
-            if IS_GUI_MODE:
-                output_message += "### Particiones\n```\n" + formatted_output + "\n```\n"
-            else:
-                print(formatted_output)
+            print("```\n" + formatted_output + "\n```")
         else:
             print_error(f"Error al listar particiones: {output_partition}")
-            output_message += f"### Error al listar particiones:\n```\n{output_partition}\n```\n"
             all_status_ok = False
         
         # Unidades Lógicas
@@ -162,66 +154,71 @@ def list_disks_partitions():
             parsed_data = _parse_wmic_output(output_logicaldisk)
             formatted_output = _format_windows_logical_disk_info(parsed_data)
             print_info("\n--- Unidades Lógicas (Volúmenes) ---")
-            if IS_GUI_MODE:
-                output_message += "### Unidades Lógicas (Volúmenes)\n```\n" + formatted_output + "\n```\n"
-            else:
-                print(formatted_output)
+            print("```\n" + formatted_output + "\n```")
         else:
             print_error(f"Error al listar unidades lógicas: {output_logicaldisk}")
-            output_message += f"### Error al listar unidades lógicas:\n```\n{output_logicaldisk}\n```\n"
             all_status_ok = False
 
         if all_status_ok:
             log_action("DiskPartition", "List Disks/Partitions", "Discos y particiones listados exitosamente (Windows).")
         else:
             log_action("DiskPartition", "List Disks/Partitions", "Errores encontrados al listar discos y particiones (Windows).")
-        
-        return output_message if IS_GUI_MODE else None # Devuelve el mensaje acumulado para la GUI
-
+            
     else: # linux
         print_info("Recopilando información de discos y particiones (Linux - lsblk)...")
         command = "lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINT,UUID,MODEL,STATE"
         output, status = execute_command(command)
         if status == 0:
             print_success("Información de Discos y Particiones (Linux):")
-            if IS_GUI_MODE:
-                output_message = "### Discos y Particiones (Linux)\n```\n" + output + "\n```\n"
-            else:
-                print(output)
+            print("```\n" + output + "\n```")
             log_action("DiskPartition", "List Disks/Partitions", "Discos y particiones listados exitosamente (Linux).")
         else:
             print_error(f"Error al listar discos y particiones: {output}")
-            if IS_GUI_MODE:
-                output_message = f"### Error al listar discos y particiones:\n```\n{output}\n```\n"
             log_action("DiskPartition", "List Disks/Partitions", f"Error al listar discos y particiones: {output}")
-        
-        return output_message if IS_GUI_MODE else None
-    
-#Uso de Particiones
+    # Esta función ya no devuelve nada explícitamente; su salida se captura por redirección.
+
 def view_mounted_partition_usage():
+    """
+    Muestra el uso de las particiones montadas.
+    La salida es impresa y capturada por la redirección de sys.stdout.
+    """
     print_header("Ver Uso de Particiones Montadas")
     os_type = get_os_type()
+    
     if os_type == 'windows':
-        # Ya lo cubrimos en `list_disks_partitions` con `wmic logicaldisk`
         print_info("Ver uso de particiones montadas (información de volúmenes):")
         command = "wmic logicaldisk get Caption,Size,FreeSpace,FileSystem /value"
+        output, status = execute_command(command)
+        if status == 0:
+            parsed_data = _parse_wmic_output(output)
+            formatted_output = _format_windows_logical_disk_info(parsed_data)
+            print("```\n" + formatted_output + "\n```")
+            log_action("DiskPartition", "View Mounted Usage", "Uso de particiones montadas listado exitosamente (Windows).")
+        else:
+            print_error(f"Error al ver uso de particiones montadas: {output}")
+            log_action("DiskPartition", "View Mounted Usage", f"Error al ver uso de particiones montadas: {output}")
     else: # linux
         command = "df -hT" # -h: humano, -T: tipo de sistema de archivos
-    
-    output, status = execute_command(command)
-    if status == 0:
-        print(output)
-        log_action("DiskPartition", "View Mounted Usage", "Uso de particiones montadas listado exitosamente.")
-    else:
-        print_error(f"Error al ver uso de particiones montadas: {output}")
-        log_action("DiskPartition", "View Mounted Usage", f"Error al ver uso de particiones montadas: {output}")
+        output, status = execute_command(command)
+        if status == 0:
+            print("```\n" + output + "\n```")
+            log_action("DiskPartition", "View Mounted Usage", "Uso de particiones montadas listado exitosamente (Linux).")
+        else:
+            print_error(f"Error al ver uso de particiones montadas: {output}")
+            log_action("DiskPartition", "View Mounted Usage", f"Error al ver uso de particiones montadas: {output}")
 
-#Generar Log
 def generate_disk_partition_log():
+    """
+    Genera un log consolidado de la gestión de particiones de disco.
+    La salida es impresa y capturada por la redirección de sys.stdout.
+    """
     print_header("Generar Log de Particiones")
     log_action("DiskPartition", "Generate Log", "Generando log de gestión de particiones.")
-    print_info("Generando informe de Discos y Particiones...")
-    list_disks_partitions()
-    print_info("\nGenerando informe de Uso de Particiones Montadas...")
-    view_mounted_partition_usage()
-    print_success(f"Log de particiones generado en {os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')}")
+    
+    print_info("\n--- Informe de Discos y Particiones ---")
+    list_disks_partitions() # Llama a la función existente, que ahora solo imprime
+
+    print_info("\n--- Informe de Uso de Particiones Montadas ---")
+    view_mounted_partition_usage() # Llama a la función existente, que ahora solo imprime
+    
+    print_success("Log de particiones generado. Consulta los logs del sistema para ver los detalles completos.")
