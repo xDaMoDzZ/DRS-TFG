@@ -1,40 +1,91 @@
 import os
 import sys
-from utils.display import clear_screen, print_menu, print_header, print_info, print_success, print_error, get_user_input, IS_GUI_MODE
+from utils.display import clear_screen, print_menu, print_warning, print_header, print_info, print_success, print_error, get_user_input, IS_GUI_MODE
 from utils.system_info import get_os_type, execute_command
 from utils.logger import log_action
 
 #Funciones Auxiliares Internas
-def _execute_docker_command(command: str, action_type: str, success_msg: str, error_prefix: str):
+
+#Comprobar que docker este corriendo
+def _check_docker_daemon_status():
+    """
+    Verifica si el demonio de Docker está corriendo.
+    Retorna True si está corriendo, False en caso contrario.
+    """
+    os_type = get_os_type()
+    command = ""
+    
+    if os_type == 'linux':
+        command = "systemctl is-active docker"
+    elif os_type == 'windows':
+        # Comprobamos si el proceso 'Docker Desktop.exe' está en ejecución.
+        command = "tasklist /FI \"IMAGENAME eq Docker Desktop.exe\""
+    else:
+        print_warning("No se puede verificar el estado del demonio de Docker en este sistema operativo.")
+        return True # Asumimos que está bien si no podemos verificar (caso inesperado de SO)
+
+    output, status = execute_command(command)
+
+    if os_type == 'linux':
+        if status == 0 and "active" in output.lower():
+            return True
+        else:
+            print_error("El demonio de Docker NO está activo. Por favor, inícielo (`sudo systemctl start docker`).")
+            log_action("Docker", "Check Daemon Status", "Demón de Docker no activo (Linux).")
+            return False
+    elif os_type == 'windows':
+        if status == 0 and "Docker Desktop.exe" in output:
+            return True
+        else:
+            print_error("El proceso 'Docker Desktop.exe' NO está corriendo. Por favor, inicie Docker Desktop.")
+            log_action("Docker", "Check Daemon Status", "Proceso Docker Desktop.exe no encontrado (Windows).")
+            return False
+    
+    return True # Fallback en caso de que ninguna condición se cumpla
+
+#Ejecutar comando de docker
+def _execute_docker_command(command: str, action_type: str, success_msg: str, error_prefix: str, cwd: str = None):
     """
     Función auxiliar para ejecutar comandos de Docker y manejar la salida.
     Adapta el comportamiento si está en modo GUI o CLI.
+    Añade un parámetro 'cwd' para especificar el directorio de trabajo.
     """
-    
+    # 1. Verificar el estado del demonio de Docker antes de ejecutar cualquier comando
+    if not _check_docker_daemon_status():
+        err_msg = "El demonio de Docker no está activo. No se puede ejecutar el comando."
+        print_error(err_msg)
+        log_action("Docker", action_type, f"Fallo (Demón no activo): {err_msg}")
+        return err_msg if IS_GUI_MODE else None # Retorna el mensaje de error para la GUI
+
     print_info(f"Ejecutando: docker {command}")
     
+    # 2. Ejecutar el comando Docker con el cwd especificado
     output, status = execute_command(f"docker {command}")
 
     if status == 0:
         if success_msg:
             print_success(success_msg)
+        
+        # 3. Manejo de la salida: imprimir en CLI, retornar en GUI
         if output.strip():
-            # En modo GUI, devolvemos la salida directamente para el Markdown
-            # En modo CLI, imprimimos la salida directamente
             if IS_GUI_MODE:
-                return output.strip()
+                result = output.strip()
             else:
                 print(output.strip())
+                result = "" # No retorna nada si ya lo imprimió
+        else:
+            result = "" # No hay salida, retorna vacío
+
         log_action("Docker", action_type, f"Comando 'docker {command}' ejecutado exitosamente.")
-        return output.strip() if IS_GUI_MODE else "" # Retorna vacío en CLI para evitar doble impresión
+        return result
     else:
+        # 4. Manejo de errores: imprimir y loguear el error completo
         full_error_msg = f"{error_prefix}: {output}"
         print_error(full_error_msg)
         log_action("Docker", action_type, full_error_msg)
         return full_error_msg # Retorna el error para mostrar en la GUI
 
 #Funciones de Gestion de Docker
-
 #Listamos todos los contenedores de docker
 def list_docker_containers():
     """Lista todos los contenedores Docker (activos e inactivos)."""
@@ -135,20 +186,6 @@ def view_docker_logs(container_id_name: str, num_lines: str = ''):
         f"View Logs {container_id_name}",
         f"Logs del contenedor '{container_id_name}':",
         f"Error al ver logs del contenedor '{container_id_name}'"
-    )
-
-#Ejecutamos un comando dentro del contenedor.
-def exec_docker_command(container_id_name: str, command_to_exec: str):
-    """Ejecuta un comando dentro de un contenedor Docker."""
-    print_header(f"Ejecutar Comando en Contenedor Docker: {container_id_name}")
-    if not container_id_name or not command_to_exec:
-        return print_error("El ID/nombre del contenedor y el comando no pueden estar vacíos.")
-
-    return _execute_docker_command(
-        f"exec {container_id_name} {command_to_exec}",
-        f"Exec Command in {container_id_name}",
-        f"Comando '{command_to_exec}' ejecutado en '{container_id_name}':",
-        f"Error al ejecutar comando en contenedor '{container_id_name}'"
     )
 
 #Función para limpiar todas las imagenes docker instaladas
