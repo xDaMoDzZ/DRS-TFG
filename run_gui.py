@@ -1,5 +1,3 @@
-# run_gui.py (Refactorizado)
-
 import sys
 import os
 

@@ -1,6 +1,7 @@
 import gradio as gr
 import io
 import sys
+import os # Necesario para deploy/stop docker compose con cwd
 
 # Importar todos los módulos de gestión
 from modules.process import process_management
@@ -19,41 +20,57 @@ import utils.system_info as system_info_utils
 import utils.logger as logger_utils
 
 
-#Funciones auxiliares
+# --- Funciones auxiliares para Gradio ---
 
 # Función genérica para ejecutar cualquier función de módulo en modo GUI
 def _run_module_function(func, *input_args):
     """
     Ejecuta una función de módulo en modo GUI, gestionando la entrada y la salida.
-    input_args son los valores que se pondrán en la cola de input si la función los pide.
+    input_args son los valores que se pondrán en la cola de input si la función los pide (e.g., para confirmaciones).
     """
+    # Si la función necesita input (ej. confirmación s/N), lo pasamos a la cola de display_utils
     if input_args:
-        display_utils.set_gui_input_queue(input_args)
-    display_utils.clear_screen()
+        display_utils.set_gui_input_queue(list(input_args)) # Convertir a lista para que sea mutable y pop funcione
+    
+    display_utils.clear_screen() # Limpia el buffer de salida antes de cada ejecución
+
+    old_stdout = sys.stdout
+    redirected_output = io.StringIO()
+    sys.stdout = redirected_output
 
     try:
-        old_stdout = sys.stdout
-        redirected_output = io.StringIO()
-        sys.stdout = redirected_output
-        func()
+        # Llamar a la función principal del módulo
+        # Si la función del módulo retorna un valor, lo capturamos
+        result = func(*input_args) # Pasar los argumentos directamente a la función si ella los espera
+
         cli_direct_prints = redirected_output.getvalue()
 
     finally:
-        sys.stdout = old_stdout
+        sys.stdout = old_stdout # Restaurar stdout
 
+    # Obtener y limpiar el buffer de Gradio después de que la función haya terminado de imprimir
     gui_formatted_output = display_utils.get_gui_output_buffer_and_clear()
 
     final_output = ""
+    # Incluir la salida directa del CLI (si la hay)
     if cli_direct_prints.strip():
         final_output += f"### Salida Directa de Consola:\n<pre>{cli_direct_prints}</pre>\n"
+    
+    # Incluir los mensajes formateados por display_utils (si los hay)
     if gui_formatted_output.strip():
         final_output += f"### Mensajes del Script:\n{gui_formatted_output}"
 
+    # Si la función del módulo devolvió algo (ej. una lista formateada de Docker, o un mensaje de error), lo añadimos
+    # Asegúrate de que este 'result' no duplique la salida ya capturada por gui_formatted_output o cli_direct_prints
+    if result is not None and isinstance(result, str) and result.strip() and result.strip() not in final_output:
+        final_output += f"\n### Resultado de la Operación:\n{result}"
+
     return final_output
 
-#Funciones auxiliares por módulos
 
-# Procesos
+# --- Funciones auxiliares por módulos (adaptadas para Gradio) ---
+
+## Procesos
 def gui_list_processes():
     return _run_module_function(process_management.list_processes)
 
@@ -68,7 +85,8 @@ def gui_terminate_process_by_name(name: str, confirm: bool):
 def gui_find_process_info_by_name(name: str):
     return _run_module_function(process_management.find_process_info_by_name, name)
 
-# Docker
+
+## Docker
 def gui_list_docker_containers():
     return _run_module_function(docker_management.list_docker_containers)
 
@@ -86,6 +104,7 @@ def gui_remove_docker_container(container_id_name: str, confirm: bool):
     return _run_module_function(docker_management.remove_docker_container, container_id_name, confirm_str)
 
 def gui_view_docker_logs(container_id_name: str, num_lines: str = ''):
+    # num_lines debe ser un string o vacío, la función lo manejará
     return _run_module_function(docker_management.view_docker_logs, container_id_name, num_lines)
 
 def gui_exec_docker_command(container_id_name: str, command_to_exec: str):
@@ -95,8 +114,14 @@ def gui_clean_docker_images(confirm: bool):
     confirm_str = 's' if confirm else 'n'
     return _run_module_function(docker_management.clean_docker_images, confirm_str)
 
+def gui_deploy_docker_compose(compose_file_path: str):
+    return _run_module_function(docker_management.deploy_docker_compose, compose_file_path)
 
-# Servicios
+def gui_stop_docker_compose(compose_file_path: str):
+    return _run_module_function(docker_management.stop_docker_compose, compose_file_path)
+
+
+## Servicios
 def gui_list_services():
     return _run_module_function(service_management.list_services)
 
@@ -116,7 +141,7 @@ def gui_disable_service(service_name: str):
     return _run_module_function(service_management.disable_service, service_name)
 
 
-# Paquetes
+## Paquetes
 def gui_update_system_packages():
     return _run_module_function(package_management.update_system_packages)
 
@@ -131,53 +156,280 @@ def gui_search_package(search_query: str):
     return _run_module_function(package_management.search_package, search_query)
 
 
-#Creamos la interfaz con Gradio
+## Usuarios y Grupos
+def gui_list_users():
+    return _run_module_function(user_group_management.list_users)
+
+def gui_list_groups():
+    return _run_module_function(user_group_management.list_groups)
+
+def gui_add_user(username: str, password: str):
+    return _run_module_function(user_group_management.add_user, username, password)
+
+def gui_remove_user(username: str, confirm: bool):
+    confirm_str = 's' if confirm else 'n'
+    return _run_module_function(user_group_management.remove_user, username, confirm_str)
+
+def gui_add_group(group_name: str):
+    return _run_module_function(user_group_management.add_group, group_name)
+
+def gui_remove_group(group_name: str, confirm: bool):
+    confirm_str = 's' if confirm else 'n'
+    return _run_module_function(user_group_management.remove_group, group_name, confirm_str)
+
+def gui_add_user_to_group(username: str, group_name: str):
+    return _run_module_function(user_group_management.add_user_to_group, username, group_name)
+
+def gui_remove_user_from_group(username: str, group_name: str):
+    return _run_module_function(user_group_management.remove_user_from_group, username, group_name)
+
+## Redes
+def gui_show_network_config():
+    return _run_module_function(network_management.show_network_config)
+
+def gui_flush_dns_cache():
+    return _run_module_function(network_management.flush_dns_cache)
+
+def gui_test_network_speed():
+    return _run_module_function(network_management.test_network_speed)
+
+def gui_view_open_ports():
+    return _run_module_function(network_management.view_open_ports)
+
+
+## Monitorización de Recursos
+def gui_get_cpu_usage():
+    return _run_module_function(resource_monitoring.get_cpu_usage)
+
+def gui_get_memory_usage():
+    return _run_module_function(resource_monitoring.get_memory_usage)
+
+def gui_get_disk_usage():
+    return _run_module_function(resource_monitoring.get_disk_usage)
+
+def gui_get_network_stats():
+    return _run_module_function(resource_monitoring.get_network_stats)
+
+def gui_get_system_uptime():
+    return _run_module_function(resource_monitoring.get_system_uptime)
+
+
+## Disco y Particiones
+def gui_list_disk_partitions():
+    return _run_module_function(disk_partition_management.list_disk_partitions)
+
+def gui_get_mount_points():
+    return _run_module_function(disk_partition_management.get_mount_points)
+
+def gui_create_directory(path: str):
+    return _run_module_function(disk_partition_management.create_directory, path)
+
+def gui_delete_file(path: str, confirm: bool):
+    confirm_str = 's' if confirm else 'n'
+    return _run_module_function(disk_partition_management.delete_file, path, confirm_str)
+
+def gui_delete_directory(path: str, confirm: bool):
+    confirm_str = 's' if confirm else 'n'
+    return _run_module_function(disk_partition_management.delete_directory, path, confirm_str)
+
+def gui_check_disk_health():
+    return _run_module_function(disk_partition_management.check_disk_health)
+
+
+## Firewall
+def gui_check_firewall_status():
+    return _run_module_function(firewall_management.check_firewall_status)
+
+def gui_enable_firewall():
+    return _run_module_function(firewall_management.enable_firewall)
+
+def gui_disable_firewall():
+    return _run_module_function(firewall_management.disable_firewall)
+
+def gui_allow_port(port: str, protocol: str):
+    return _run_module_function(firewall_management.allow_port, port, protocol)
+
+def gui_deny_port(port: str, protocol: str):
+    return _run_module_function(firewall_management.deny_port, port, protocol)
+
+def gui_allow_app(app_name: str):
+    return _run_module_function(firewall_management.allow_app, app_name)
+
+def gui_deny_app(app_name: str):
+    return _run_module_function(firewall_management.deny_app, app_name)
+
+def gui_list_firewall_rules():
+    return _run_module_function(firewall_management.list_firewall_rules)
+
+def gui_remove_firewall_rule(rule_id: str, confirm: bool):
+    confirm_str = 's' if confirm else 'n'
+    return _run_module_function(firewall_management.remove_firewall_rule, rule_id, confirm_str)
+
+
+# --- Creación de la interfaz con Gradio ---
+
 def create_gradio_interface():
-    with gr.Blocks() as demo:
+    with gr.Blocks(title="System Administration Tool") as demo:
         gr.Markdown(f"# Herramienta de Administración de Sistemas (GUI)")
-        gr.Markdown(f"### Sistema Operativo Detectado: {system_info_utils.get_os_type().capitalize()}")
+        gr.Markdown(f"### Sistema Operativo Detectado: **{system_info_utils.get_os_type().capitalize()}**")
 
-        with gr.Tab("Procesos"):
-            with gr.Accordion("Listar Procesos", open=False):
-                list_proc_btn = gr.Button("Listar Procesos")
-                output_proc_list = gr.Markdown()
-                list_proc_btn.click(gui_list_processes, inputs=None, outputs=output_proc_list)
-            
-            with gr.Accordion("Terminar Proceso por PID", open=False):
-                pid_to_terminate = gr.Textbox(label="PID del Proceso")
-                confirm_terminate_proc = gr.Checkbox(label="Confirmar Terminación", info="Marque para confirmar la eliminación")
-                terminate_proc_btn = gr.Button("Terminar Proceso")
-                output_proc_terminate = gr.Markdown()
-                terminate_proc_btn.click(
-                    gui_terminate_process_by_pid,
-                    inputs=[pid_to_terminate, confirm_terminate_proc],
-                    outputs=output_proc_terminate
-                )
-            
-            with gr.Accordion("Terminar Proceso por Nombre", open=False):
-                name_to_terminate = gr.Textbox(label="Nombre del Proceso")
-                confirm_terminate_name = gr.Checkbox(label="Confirmar Terminación", info="Marque para confirmar la eliminación")
-                terminate_name_btn = gr.Button("Terminar Proceso por Nombre")
-                output_proc_terminate_name = gr.Markdown()
-                terminate_name_btn.click(
-                    gui_terminate_process_by_name,
-                    inputs=[name_to_terminate, confirm_terminate_name],
-                    outputs=output_proc_terminate_name
-                )
-            
-            with gr.Accordion("Buscar Información de Proceso por Nombre", open=False):
-                search_proc_name = gr.Textbox(label="Nombre o parte del nombre del proceso a buscar")
-                # ELIMINAR ESTE CHECKBOX: confirm_search_terminate = gr.Checkbox(label="¿Desea intentar terminar procesos encontrados?", info="Marque si desea que el script pregunte para terminar procesos")
-                search_proc_btn = gr.Button("Buscar Proceso")
-                output_proc_search = gr.Markdown()
-                search_proc_btn.click(
-                    gui_find_process_info_by_name,
-                    # Ahora solo pasamos el nombre del proceso como input
-                    inputs=[search_proc_name],
-                    outputs=output_proc_search
-                )
+        # --- Pestaña de Usuarios y Grupos ---
+        with gr.Tab("Usuarios y Grupos"):
+            gr.Markdown("## Administración de Usuarios y Grupos")
+            with gr.Accordion("Listar Usuarios y Grupos", open=True):
+                list_users_btn = gr.Button("Listar Usuarios")
+                output_list_users = gr.Markdown()
+                list_users_btn.click(gui_list_users, inputs=None, outputs=output_list_users)
 
+                list_groups_btn = gr.Button("Listar Grupos")
+                output_list_groups = gr.Markdown()
+                list_groups_btn.click(gui_list_groups, inputs=None, outputs=output_list_groups)
+
+            with gr.Accordion("Añadir Usuario", open=False):
+                add_username = gr.Textbox(label="Nombre de Usuario")
+                add_password = gr.Textbox(label="Contraseña (opcional)", type="password", info="Si se deja vacío, algunos sistemas podrían pedirla después o usar contraseña vacía.")
+                add_user_btn = gr.Button("Añadir Usuario")
+                output_add_user = gr.Markdown()
+                add_user_btn.click(gui_add_user, inputs=[add_username, add_password], outputs=output_add_user)
+
+            with gr.Accordion("Eliminar Usuario", open=False):
+                remove_username = gr.Textbox(label="Nombre de Usuario a Eliminar")
+                confirm_remove_user = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación de usuario")
+                remove_user_btn = gr.Button("Eliminar Usuario")
+                output_remove_user = gr.Markdown()
+                remove_user_btn.click(gui_remove_user, inputs=[remove_username, confirm_remove_user], outputs=output_remove_user)
+
+            with gr.Accordion("Añadir Grupo", open=False):
+                add_group_name = gr.Textbox(label="Nombre del Grupo")
+                add_group_btn = gr.Button("Añadir Grupo")
+                output_add_group = gr.Markdown()
+                add_group_btn.click(gui_add_group, inputs=[add_group_name], outputs=output_add_group)
+
+            with gr.Accordion("Eliminar Grupo", open=False):
+                remove_group_name = gr.Textbox(label="Nombre del Grupo a Eliminar")
+                confirm_remove_group = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación de grupo")
+                remove_group_btn = gr.Button("Eliminar Grupo")
+                output_remove_group = gr.Markdown()
+                remove_group_btn.click(gui_remove_group, inputs=[remove_group_name, confirm_remove_group], outputs=output_remove_group)
+
+            with gr.Accordion("Añadir/Eliminar Usuario de Grupo", open=False):
+                user_group_user = gr.Textbox(label="Nombre de Usuario")
+                user_group_group = gr.Textbox(label="Nombre del Grupo")
+                add_user_to_group_btn = gr.Button("Añadir Usuario a Grupo")
+                remove_user_from_group_btn = gr.Button("Eliminar Usuario de Grupo")
+                output_user_group = gr.Markdown()
+                add_user_to_group_btn.click(gui_add_user_to_group, inputs=[user_group_user, user_group_group], outputs=output_user_group)
+                remove_user_from_group_btn.click(gui_remove_user_from_group, inputs=[user_group_user, user_group_group], outputs=output_user_group)
+
+
+        # --- Pestaña de Redes ---
+        with gr.Tab("Redes"):
+            gr.Markdown("## Administración de Redes")
+            with gr.Accordion("Configuración de Red", open=True):
+                show_net_config_btn = gr.Button("Mostrar Configuración de Red")
+                output_net_config = gr.Markdown()
+                show_net_config_btn.click(gui_show_network_config, inputs=None, outputs=output_net_config)
+
+            with gr.Accordion("Vaciar Caché DNS", open=False):
+                flush_dns_btn = gr.Button("Vaciar Caché DNS")
+                output_flush_dns = gr.Markdown()
+                flush_dns_btn.click(gui_flush_dns_cache, inputs=None, outputs=output_flush_dns)
+            
+            with gr.Accordion("Test de Velocidad de Red", open=False):
+                test_speed_btn = gr.Button("Realizar Test de Velocidad")
+                output_test_speed = gr.Markdown()
+                test_speed_btn.click(gui_test_network_speed, inputs=None, outputs=output_test_speed)
+
+            with gr.Accordion("Ver Puertos Abiertos", open=False):
+                view_ports_btn = gr.Button("Ver Puertos Abiertos")
+                output_view_ports = gr.Markdown()
+                view_ports_btn.click(gui_view_open_ports, inputs=None, outputs=output_view_ports)
+
+
+        # --- Pestaña de Paquetes ---
+        with gr.Tab("Paquetes"):
+            gr.Markdown("## Administración de Paquetes")
+            with gr.Accordion("Actualizar Paquetes del Sistema", open=True):
+                update_packages_btn = gr.Button("Actualizar Paquetes del Sistema")
+                output_packages_update = gr.Markdown()
+                update_packages_btn.click(gui_update_system_packages, inputs=None, outputs=output_packages_update)
+            
+            with gr.Accordion("Instalar Paquete", open=False):
+                package_name_install = gr.Textbox(label="Nombre del Paquete a Instalar")
+                install_package_btn = gr.Button("Instalar Paquete")
+                output_package_install = gr.Markdown()
+                install_package_btn.click(gui_install_package, inputs=[package_name_install], outputs=output_package_install)
+
+            with gr.Accordion("Eliminar Paquete", open=False):
+                package_name_remove = gr.Textbox(label="Nombre del Paquete a Eliminar")
+                confirm_remove_package = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación")
+                remove_package_btn = gr.Button("Eliminar Paquete")
+                output_package_remove = gr.Markdown()
+                remove_package_btn.click(gui_remove_package, inputs=[package_name_remove, confirm_remove_package], outputs=output_package_remove)
+
+            with gr.Accordion("Buscar Paquete", open=False):
+                search_package_query = gr.Textbox(label="Término de búsqueda")
+                search_package_btn = gr.Button("Buscar Paquete")
+                output_package_search = gr.Markdown()
+                search_package_btn.click(gui_search_package, inputs=[search_package_query], outputs=output_package_search)
+
+
+        # --- Pestaña de Recursos ---
+        with gr.Tab("Recursos"):
+            gr.Markdown("## Monitorización de Recursos")
+            with gr.Accordion("Uso de CPU", open=True):
+                get_cpu_btn = gr.Button("Obtener Uso de CPU")
+                output_cpu_usage = gr.Markdown()
+                get_cpu_btn.click(gui_get_cpu_usage, inputs=None, outputs=output_cpu_usage)
+            
+            with gr.Accordion("Uso de Memoria", open=False):
+                get_mem_btn = gr.Button("Obtener Uso de Memoria")
+                output_mem_usage = gr.Markdown()
+                get_mem_btn.click(gui_get_memory_usage, inputs=None, outputs=output_mem_usage)
+
+            with gr.Accordion("Uso de Disco", open=False):
+                get_disk_usage_btn = gr.Button("Obtener Uso de Disco")
+                output_disk_usage = gr.Markdown()
+                get_disk_usage_btn.click(gui_get_disk_usage, inputs=None, outputs=output_disk_usage)
+            
+            with gr.Accordion("Estadísticas de Red", open=False):
+                get_net_stats_btn = gr.Button("Obtener Estadísticas de Red")
+                output_net_stats = gr.Markdown()
+                get_net_stats_btn.click(gui_get_network_stats, inputs=None, outputs=output_net_stats)
+            
+            with gr.Accordion("Tiempo de Actividad (Uptime)", open=False):
+                get_uptime_btn = gr.Button("Obtener Tiempo de Actividad")
+                output_uptime = gr.Markdown()
+                get_uptime_btn.click(gui_get_system_uptime, inputs=None, outputs=output_uptime)
+
+
+        # --- Pestaña de Servicios ---
+        with gr.Tab("Servicios"):
+            gr.Markdown("## Administración de Servicios")
+            with gr.Accordion("Listar Servicios", open=True):
+                list_services_btn = gr.Button("Listar Servicios")
+                output_services_list = gr.Markdown()
+                list_services_btn.click(gui_list_services, inputs=None, outputs=output_services_list)
+            
+            with gr.Accordion("Control de Servicios", open=False):
+                service_name_control = gr.Textbox(label="Nombre del Servicio")
+                start_service_btn = gr.Button("Iniciar")
+                stop_service_btn = gr.Button("Detener")
+                restart_service_btn = gr.Button("Reiniciar")
+                enable_service_btn = gr.Button("Habilitar (Auto)")
+                disable_service_btn = gr.Button("Deshabilitar (No Auto)")
+                output_service_control = gr.Markdown()
+
+                start_service_btn.click(gui_start_service, inputs=[service_name_control], outputs=output_service_control)
+                stop_service_btn.click(gui_stop_service, inputs=[service_name_control], outputs=output_service_control)
+                restart_service_btn.click(gui_restart_service, inputs=[service_name_control], outputs=output_service_control)
+                enable_service_btn.click(gui_enable_service, inputs=[service_name_control], outputs=output_service_control)
+                disable_service_btn.click(gui_disable_service, inputs=[service_name_control], outputs=output_service_control)
+
+
+        # --- Pestaña de Docker ---
         with gr.Tab("Docker"):
+            gr.Markdown("## Administración de Docker")
             with gr.Accordion("Listar Contenedores", open=True):
                 list_docker_btn = gr.Button("Listar Contenedores")
                 output_docker_list = gr.Markdown()
@@ -221,59 +473,144 @@ def create_gradio_interface():
                 output_docker_clean = gr.Markdown()
                 clean_images_btn.click(gui_clean_docker_images, inputs=[confirm_clean_images], outputs=output_docker_clean)
 
-        with gr.Tab("Servicios"):
-            with gr.Accordion("Listar Servicios", open=True):
-                list_services_btn = gr.Button("Listar Servicios")
-                output_services_list = gr.Markdown()
-                list_services_btn.click(gui_list_services, inputs=None, outputs=output_services_list)
+            with gr.Accordion("Docker Compose", open=False):
+                compose_file_path = gr.Textbox(label="Ruta al archivo docker-compose.yml (ruta absoluta)")
+                deploy_compose_btn = gr.Button("Levantar Servicios (up -d)")
+                stop_compose_btn = gr.Button("Detener y Eliminar Servicios (down)")
+                output_docker_compose = gr.Markdown()
+                deploy_compose_btn.click(gui_deploy_docker_compose, inputs=[compose_file_path], outputs=output_docker_compose)
+                stop_compose_btn.click(gui_stop_docker_compose, inputs=[compose_file_path], outputs=output_docker_compose)
+
+
+        # --- Pestaña de Firewall ---
+        with gr.Tab("Firewall"):
+            gr.Markdown("## Administración de Firewall")
+            with gr.Accordion("Estado y Control del Firewall", open=True):
+                check_firewall_btn = gr.Button("Ver Estado del Firewall")
+                output_firewall_status = gr.Markdown()
+                check_firewall_btn.click(gui_check_firewall_status, inputs=None, outputs=output_firewall_status)
+
+                enable_firewall_btn = gr.Button("Habilitar Firewall")
+                disable_firewall_btn = gr.Button("Deshabilitar Firewall")
+                output_firewall_toggle = gr.Markdown()
+                enable_firewall_btn.click(gui_enable_firewall, inputs=None, outputs=output_firewall_toggle)
+                disable_firewall_btn.click(gui_disable_firewall, inputs=None, outputs=output_firewall_toggle)
+
+            with gr.Accordion("Gestión de Reglas por Puerto", open=False):
+                port_rule_port = gr.Textbox(label="Número de Puerto")
+                port_rule_protocol = gr.Radio(["tcp", "udp", "both"], label="Protocolo", value="tcp")
+                allow_port_btn = gr.Button("Permitir Puerto")
+                deny_port_btn = gr.Button("Denegar Puerto")
+                output_port_rule = gr.Markdown()
+                allow_port_btn.click(gui_allow_port, inputs=[port_rule_port, port_rule_protocol], outputs=output_port_rule)
+                deny_port_btn.click(gui_deny_port, inputs=[port_rule_port, port_rule_protocol], outputs=output_port_rule)
+
+            with gr.Accordion("Gestión de Reglas por Aplicación (Windows/UFW)", open=False):
+                app_rule_name = gr.Textbox(label="Nombre de la Aplicación")
+                allow_app_btn = gr.Button("Permitir Aplicación")
+                deny_app_btn = gr.Button("Denegar Aplicación")
+                output_app_rule = gr.Markdown()
+                allow_app_btn.click(gui_allow_app, inputs=[app_rule_name], outputs=output_app_rule)
+                deny_app_btn.click(gui_deny_app, inputs=[app_rule_name], outputs=output_app_rule)
+
+            with gr.Accordion("Listar y Eliminar Reglas", open=False):
+                list_firewall_rules_btn = gr.Button("Listar Reglas del Firewall")
+                output_list_rules = gr.Markdown()
+                list_firewall_rules_btn.click(gui_list_firewall_rules, inputs=None, outputs=output_list_rules)
+
+                remove_rule_id = gr.Textbox(label="ID de la Regla a Eliminar (Solo Windows)")
+                confirm_remove_rule = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación de la regla")
+                remove_rule_btn = gr.Button("Eliminar Regla")
+                output_remove_rule = gr.Markdown()
+                remove_rule_btn.click(gui_remove_firewall_rule, inputs=[remove_rule_id, confirm_remove_rule], outputs=output_remove_rule)
+
+
+        # --- Pestaña de Disco ---
+        with gr.Tab("Disco"):
+            gr.Markdown("## Administración de Disco y Particiones")
+            with gr.Accordion("Listar Discos y Particiones", open=True):
+                list_disk_parts_btn = gr.Button("Listar Discos y Particiones")
+                output_disk_parts = gr.Markdown()
+                list_disk_parts_btn.click(gui_list_disk_partitions, inputs=None, outputs=output_disk_parts)
+
+                get_mount_points_btn = gr.Button("Ver Puntos de Montaje")
+                output_mount_points = gr.Markdown()
+                get_mount_points_btn.click(gui_get_mount_points, inputs=None, outputs=output_mount_points)
             
-            with gr.Accordion("Control de Servicios", open=False):
-                service_name_control = gr.Textbox(label="Nombre del Servicio")
-                start_service_btn = gr.Button("Iniciar")
-                stop_service_btn = gr.Button("Detener")
-                restart_service_btn = gr.Button("Reiniciar")
-                enable_service_btn = gr.Button("Habilitar (Auto)")
-                disable_service_btn = gr.Button("Deshabilitar (No Auto)")
-                output_service_control = gr.Markdown()
+            with gr.Accordion("Crear Directorio", open=False):
+                create_dir_path = gr.Textbox(label="Ruta del Nuevo Directorio (ej: /home/usuario/nueva_carpeta)")
+                create_dir_btn = gr.Button("Crear Directorio")
+                output_create_dir = gr.Markdown()
+                create_dir_btn.click(gui_create_directory, inputs=[create_dir_path], outputs=output_create_dir)
 
-                start_service_btn.click(gui_start_service, inputs=[service_name_control], outputs=output_service_control)
-                stop_service_btn.click(gui_stop_service, inputs=[service_name_control], outputs=output_service_control)
-                restart_service_btn.click(gui_restart_service, inputs=[service_name_control], outputs=output_service_control)
-                enable_service_btn.click(gui_enable_service, inputs=[service_name_control], outputs=output_service_control)
-                disable_service_btn.click(gui_disable_service, inputs=[service_name_control], outputs=output_service_control)
-
-        with gr.Tab("Paquetes"):
-            with gr.Accordion("Actualizar Paquetes del Sistema", open=True):
-                update_packages_btn = gr.Button("Actualizar Paquetes del Sistema")
-                output_packages_update = gr.Markdown()
-                update_packages_btn.click(gui_update_system_packages, inputs=None, outputs=output_packages_update)
+            with gr.Accordion("Eliminar Archivo", open=False):
+                delete_file_path = gr.Textbox(label="Ruta del Archivo a Eliminar (ej: /home/usuario/archivo.txt)")
+                confirm_delete_file = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación del archivo")
+                delete_file_btn = gr.Button("Eliminar Archivo")
+                output_delete_file = gr.Markdown()
+                delete_file_btn.click(gui_delete_file, inputs=[delete_file_path, confirm_delete_file], outputs=output_delete_file)
             
-            with gr.Accordion("Instalar Paquete", open=False):
-                package_name_install = gr.Textbox(label="Nombre del Paquete a Instalar")
-                install_package_btn = gr.Button("Instalar Paquete")
-                output_package_install = gr.Markdown()
-                install_package_btn.click(gui_install_package, inputs=[package_name_install], outputs=output_package_install)
+            with gr.Accordion("Eliminar Directorio (Recursivo)", open=False):
+                delete_dir_path = gr.Textbox(label="Ruta del Directorio a Eliminar (ej: /home/usuario/carpeta_a_eliminar)")
+                confirm_delete_dir = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación recursiva del directorio y su contenido")
+                delete_dir_btn = gr.Button("Eliminar Directorio")
+                output_delete_dir = gr.Markdown()
+                delete_dir_btn.click(gui_delete_directory, inputs=[delete_dir_path, confirm_delete_dir], outputs=output_delete_dir)
+            
+            with gr.Accordion("Comprobar Salud del Disco (S.M.A.R.T. en Linux)", open=False):
+                check_disk_health_btn = gr.Button("Comprobar Salud del Disco")
+                output_disk_health = gr.Markdown()
+                check_disk_health_btn.click(gui_check_disk_health, inputs=None, outputs=output_disk_health)
 
-            with gr.Accordion("Eliminar Paquete", open=False):
-                package_name_remove = gr.Textbox(label="Nombre del Paquete a Eliminar")
-                confirm_remove_package = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación")
-                remove_package_btn = gr.Button("Eliminar Paquete")
-                output_package_remove = gr.Markdown()
-                remove_package_btn.click(gui_remove_package, inputs=[package_name_remove, confirm_remove_package], outputs=output_package_remove)
 
-            with gr.Accordion("Buscar Paquete", open=False):
-                search_package_query = gr.Textbox(label="Término de búsqueda")
-                search_package_btn = gr.Button("Buscar Paquete")
-                output_package_search = gr.Markdown()
-                search_package_btn.click(gui_search_package, inputs=[search_package_query], outputs=output_package_search)
+        # --- Pestaña de Procesos (ya existente) ---
+        # Este es el código que ya tenías para la pestaña de Procesos
+        with gr.Tab("Procesos"): # Repetimos la pestaña de Procesos aquí para que esté ordenada
+            gr.Markdown("## Administración de Procesos")
+            with gr.Accordion("Listar Procesos", open=True):
+                list_proc_btn = gr.Button("Listar Procesos")
+                output_proc_list = gr.Markdown()
+                list_proc_btn.click(gui_list_processes, inputs=None, outputs=output_proc_list)
+            
+            with gr.Accordion("Terminar Proceso por PID", open=False):
+                pid_to_terminate = gr.Textbox(label="PID del Proceso")
+                confirm_terminate_proc = gr.Checkbox(label="Confirmar Terminación", info="Marque para confirmar la eliminación")
+                terminate_proc_btn = gr.Button("Terminar Proceso")
+                output_proc_terminate = gr.Markdown()
+                terminate_proc_btn.click(
+                    gui_terminate_process_by_pid,
+                    inputs=[pid_to_terminate, confirm_terminate_proc],
+                    outputs=output_proc_terminate
+                )
+            
+            with gr.Accordion("Terminar Proceso por Nombre", open=False):
+                name_to_terminate = gr.Textbox(label="Nombre del Proceso")
+                confirm_terminate_name = gr.Checkbox(label="Confirmar Terminación", info="Marque para confirmar la eliminación")
+                terminate_name_btn = gr.Button("Terminar Proceso por Nombre")
+                output_proc_terminate_name = gr.Markdown()
+                terminate_name_btn.click(
+                    gui_terminate_process_by_name,
+                    inputs=[name_to_terminate, confirm_terminate_name],
+                    outputs=output_proc_terminate_name
+                )
+            
+            with gr.Accordion("Buscar Información de Proceso por Nombre", open=False):
+                search_proc_name = gr.Textbox(label="Nombre o parte del nombre del proceso a buscar")
+                search_proc_btn = gr.Button("Buscar Proceso")
+                output_proc_search = gr.Markdown()
+                search_proc_btn.click(
+                    gui_find_process_info_by_name,
+                    inputs=[search_proc_name],
+                    outputs=output_proc_search
+                )
 
     return demo
 
-#Lanzamos la interfaz
+# --- Lanzamiento de la Interfaz (ya proporcionado y validado en la respuesta anterior) ---
 def start_gui():
     """Inicia la interfaz gráfica de Gradio."""
     display_utils.IS_GUI_MODE = True
     print("Iniciando la interfaz gráfica de Gradio...")
     app = create_gradio_interface()
-    #Nos aseguramos que gradio se lanza en el navegador
+    # Aseguramos que Gradio se lance en el navegador automáticamente
     app.launch(share=False, inbrowser=True)
