@@ -149,9 +149,8 @@ def gui_update_system_packages():
 def gui_install_package(package_name: str):
     return _run_module_function(package_management.install_package, package_name)
 
-def gui_remove_package(package_name: str, confirm: bool):
-    confirm_str = 's' if confirm else 'n'
-    return _run_module_function(package_management.remove_package, package_name, confirm_str)
+def gui_remove_package(package_name: str):
+    return _run_module_function(package_management.remove_package, package_name)
 
 def gui_search_package(search_query: str):
     return _run_module_function(package_management.search_package, search_query)
@@ -426,10 +425,9 @@ def create_gradio_interface():
 
             with gr.Accordion("Eliminar Paquete", open=False):
                 package_name_remove = gr.Textbox(label="Nombre del Paquete a Eliminar")
-                confirm_remove_package = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación")
                 remove_package_btn = gr.Button("Eliminar Paquete")
                 output_package_remove = gr.Markdown()
-                remove_package_btn.click(gui_remove_package, inputs=[package_name_remove, confirm_remove_package], outputs=output_package_remove)
+                remove_package_btn.click(gui_remove_package, inputs=[package_name_remove], outputs=output_package_remove)
 
             with gr.Accordion("Buscar Paquete", open=False):
                 search_package_query = gr.Textbox(label="Término de búsqueda")
