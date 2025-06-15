@@ -1,9 +1,8 @@
 import os
 import sys
 
-# Detectar si estamos en modo GUI (Gradio)
-# Gradio establece una variable de entorno 'GRADIO_SERVER_PORT'
-IS_GUI_MODE = os.environ.get("GRADIO_SERVER_PORT") is not None
+# Detectar si estamos en modo GUI
+IS_GUI_MODE = False
 
 # Clase de colore personalizado para el terminal
 class Colors:
