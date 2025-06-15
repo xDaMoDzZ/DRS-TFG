@@ -4,15 +4,12 @@ from utils.display import clear_screen, print_menu, print_header, print_info, pr
 from utils.system_info import get_os_type, execute_command
 from utils.logger import log_action
 
-#Funciones Auxiliares Internas ---
-
+#Funciones Auxiliares Internas
 def _execute_docker_command(command: str, action_type: str, success_msg: str, error_prefix: str):
     """
     Función auxiliar para ejecutar comandos de Docker y manejar la salida.
     Adapta el comportamiento si está en modo GUI o CLI.
     """
-    # Docker commands are mostly consistent across OS, but underlying shell might differ
-    # We assume 'docker' command is available in PATH
     
     print_info(f"Ejecutando: docker {command}")
     
@@ -36,8 +33,9 @@ def _execute_docker_command(command: str, action_type: str, success_msg: str, er
         log_action("Docker", action_type, full_error_msg)
         return full_error_msg # Retorna el error para mostrar en la GUI
 
-#Funciones de Gestión de Docker ---
+#Funciones de Gestion de Docker
 
+#Listamos todos los contenedores de docker
 def list_docker_containers():
     """Lista todos los contenedores Docker (activos e inactivos)."""
     print_header("Listar Contenedores Docker")
@@ -50,6 +48,7 @@ def list_docker_containers():
         "Error al listar contenedores"
     )
 
+#Arrancamos contenedor docker por nombre
 def start_docker_container(container_id_name: str):
     """Inicia un contenedor Docker."""
     print_header(f"Iniciar Contenedor Docker: {container_id_name}")
@@ -63,6 +62,7 @@ def start_docker_container(container_id_name: str):
         f"Error al iniciar contenedor '{container_id_name}'"
     )
 
+#Paramos contenedor docker por nombre
 def stop_docker_container(container_id_name: str):
     """Detiene un contenedor Docker."""
     print_header(f"Detener Contenedor Docker: {container_id_name}")
@@ -76,6 +76,7 @@ def stop_docker_container(container_id_name: str):
         f"Error al detener contenedor '{container_id_name}'"
     )
 
+#Reiniciamos un contenedor docker por nombre
 def restart_docker_container(container_id_name: str):
     """Reinicia un contenedor Docker."""
     print_header(f"Reiniciar Contenedor Docker: {container_id_name}")
@@ -89,6 +90,7 @@ def restart_docker_container(container_id_name: str):
         f"Error al reiniciar contenedor '{container_id_name}'"
     )
 
+#Eliminamos contenedor docker por nombre
 def remove_docker_container(container_id_name: str, confirm: str = 'n'):
     """Elimina un contenedor Docker."""
     print_header(f"Eliminar Contenedor Docker: {container_id_name}")
@@ -114,6 +116,7 @@ def remove_docker_container(container_id_name: str, confirm: str = 'n'):
         f"Error al eliminar contenedor '{container_id_name}'"
     )
 
+#Miramos los logs del contenedor docker
 def view_docker_logs(container_id_name: str, num_lines: str = ''):
     """
     Muestra los logs de un contenedor Docker.
@@ -134,6 +137,7 @@ def view_docker_logs(container_id_name: str, num_lines: str = ''):
         f"Error al ver logs del contenedor '{container_id_name}'"
     )
 
+#Ejecutamos un comando dentro del contenedor.
 def exec_docker_command(container_id_name: str, command_to_exec: str):
     """Ejecuta un comando dentro de un contenedor Docker."""
     print_header(f"Ejecutar Comando en Contenedor Docker: {container_id_name}")
@@ -147,6 +151,7 @@ def exec_docker_command(container_id_name: str, command_to_exec: str):
         f"Error al ejecutar comando en contenedor '{container_id_name}'"
     )
 
+#Función para limpiar todas las imagenes docker instaladas
 def clean_docker_images(confirm: str = 'n'):
     """Elimina todas las imágenes Docker no utilizadas."""
     print_header("Limpiar Imágenes Docker No Utilizadas")
@@ -171,6 +176,8 @@ def clean_docker_images(confirm: str = 'n'):
         "Error al limpiar imágenes Docker"
     )
 
+#FUNCIONES DE DOCKER COMPOSE
+#Desplegar docker compose por archivo
 def deploy_docker_compose(compose_file_path: str):
     """
     Levanta los servicios definidos en un archivo docker-compose.yml.
@@ -198,6 +205,7 @@ def deploy_docker_compose(compose_file_path: str):
         f"Error al levantar Docker Compose '{compose_file_path}'"
     )
 
+#Detener docker comopose
 def stop_docker_compose(compose_file_path: str):
     """
     Detiene y elimina los servicios definidos en un archivo docker-compose.yml.
