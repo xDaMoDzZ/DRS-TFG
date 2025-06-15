@@ -113,6 +113,52 @@ def start_docker_container(container_id_name: str):
         f"Error al iniciar contenedor '{container_id_name}'"
     )
 
+#Ejecutar comando en contenedor
+def execute_command_in_container(container_name: str, command: str) -> tuple[str, int]:
+    """
+    Ejecuta un comando dentro de un contenedor Docker específico.
+
+    Args:
+        container_name (str): El nombre o ID del contenedor donde se ejecutará el comando.
+        command (str): El comando a ejecutar dentro del contenedor.
+
+    Returns:
+        tuple[str, int]: Una tupla que contiene la salida del comando (stdout/stderr)
+                         y el código de estado de salida.
+    """
+    print_header(f"Ejecutar Comando en Contenedor '{container_name}'")
+
+    if not container_name:
+        print_error("El nombre del contenedor no puede estar vacío.")
+        log_action("Docker", "Execute Command in Container", "Error: Nombre de contenedor vacío.")
+        return "Error: El nombre del contenedor no puede estar vacío.", 1
+
+    if not command:
+        print_error("El comando a ejecutar no puede estar vacío.")
+        log_action("Docker", "Execute Command in Container", "Error: Comando vacío.")
+        return "Error: El comando a ejecutar no puede estar vacío.", 1
+    
+    # Construir el comando docker exec
+    # Usamos sh -c para que el comando se interprete correctamente,
+    # lo que es útil para comandos con pipes, redirecciones, etc.
+    docker_command = f'docker exec {container_name} sh -c "{command}"'
+    
+    print_info(f"Ejecutando '{command}' en el contenedor '{container_name}'...")
+    output, status = execute_command(docker_command, sudo=True) # docker commands usually require sudo
+
+    if status == 0:
+        print_success(f"Comando ejecutado exitosamente en '{container_name}'.")
+        print_info("Salida del comando:")
+        print_info(output) # Imprime la salida del comando dentro del contenedor
+        log_action("Docker", "Execute Command in Container", 
+                   f"Comando '{command}' ejecutado en '{container_name}'. Salida: {output.strip()[:100]}...")
+    else:
+        print_error(f"Error al ejecutar comando en '{container_name}': {output}")
+        log_action("Docker", "Execute Command in Container", 
+                   f"Error al ejecutar comando '{command}' en '{container_name}': {output.strip()[:100]}...")
+    
+    return output, status
+
 #Paramos contenedor docker por nombre
 def stop_docker_container(container_id_name: str):
     """Detiene un contenedor Docker."""
@@ -214,6 +260,13 @@ def clean_docker_images(confirm: str = 'n'):
     )
 
 #FUNCIONES DE DOCKER COMPOSE
+STATIC_DOCKER_COMPOSE_PATH = "./modules/docker/docker-compose.yml"
+
+# Verificar la ruta del archivo (opcional)
+if not os.path.exists(STATIC_DOCKER_COMPOSE_PATH):
+    print_warning(f"Advertencia: El archivo Docker Compose no se encontró en la ruta estática: {STATIC_DOCKER_COMPOSE_PATH}")
+    print_warning("Por favor, asegúrese de que la ruta sea correcta o cree el archivo.")
+
 #Desplegar docker compose por archivo
 def deploy_docker_compose(compose_file_path: str):
     """
@@ -243,50 +296,99 @@ def deploy_docker_compose(compose_file_path: str):
     )
 
 #Detener docker comopose
-def stop_docker_compose(compose_file_path: str):
+def docker_compose_up():
     """
-    Detiene y elimina los servicios definidos en un archivo docker-compose.yml.
-    Usa 'docker compose down'.
+    Inicia los servicios definidos en el archivo Docker Compose de la ruta estática.
     """
-    print_header(f"Detener Docker Compose: {compose_file_path}")
-    if not compose_file_path:
-        return print_error("La ruta al archivo docker-compose.yml no puede estar vacía.")
-
-    if not os.path.exists(compose_file_path):
-        return print_error(f"El archivo '{compose_file_path}' no existe.")
+    print_header("Docker Compose: Iniciar Servicios")
     
-    if os.path.isdir(compose_file_path):
-        return print_error(f"'{compose_file_path}' es un directorio, no un archivo docker-compose.yml.")
+    if not os.path.exists(STATIC_DOCKER_COMPOSE_PATH):
+        print_error(f"Error: Archivo Docker Compose no encontrado en '{STATIC_DOCKER_COMPOSE_PATH}'.")
+        log_action("Docker Compose", "Up", f"Error: Archivo no encontrado en '{STATIC_DOCKER_COMPOSE_PATH}'.")
+        return
 
-    command = f"compose -f \"{compose_file_path}\" down"
+    # Usamos -d para ejecutar en modo 'detached' (segundo plano)
+    command = f"docker compose -f \"{STATIC_DOCKER_COMPOSE_PATH}\" up -d"
+    
+    print_info(f"Iniciando servicios Docker Compose desde '{STATIC_DOCKER_COMPOSE_PATH}'...")
+    output, status = execute_command(command, sudo=True)
 
-    return _execute_docker_command(
-        command,
-        f"Stop Docker Compose {compose_file_path}",
-        f"Servicios de Docker Compose '{compose_file_path}' detenidos exitosamente.",
-        f"Error al detener Docker Compose '{compose_file_path}'"
-    )
+    if status == 0:
+        print_success(f"Servicios Docker Compose iniciados exitosamente desde '{STATIC_DOCKER_COMPOSE_PATH}'.")
+        print_info(output)
+        log_action("Docker Compose", "Up", f"Servicios iniciados desde '{STATIC_DOCKER_COMPOSE_PATH}'.")
+    else:
+        print_error(f"Error al iniciar servicios Docker Compose: {output}")
+        log_action("Docker Compose", "Up", f"Error al iniciar servicios desde '{STATIC_DOCKER_COMPOSE_PATH}': {output}")
+
+def docker_compose_down():
+    """
+    Detiene y remueve los servicios definidos en el archivo Docker Compose de la ruta estática.
+    """
+    print_header("Docker Compose: Detener Servicios")
+
+    if not os.path.exists(STATIC_DOCKER_COMPOSE_PATH):
+        print_error(f"Error: Archivo Docker Compose no encontrado en '{STATIC_DOCKER_COMPOSE_PATH}'.")
+        log_action("Docker Compose", "Down", f"Error: Archivo no encontrado en '{STATIC_DOCKER_COMPOSE_PATH}'.")
+        return
+
+    # Usamos --volumes para remover también volúmenes anónimos
+    command = f"docker compose -f \"{STATIC_DOCKER_COMPOSE_PATH}\" down --volumes"
+    
+    print_info(f"Deteniendo servicios Docker Compose desde '{STATIC_DOCKER_COMPOSE_PATH}'...")
+    output, status = execute_command(command, sudo=True)
+
+    if status == 0:
+        print_success(f"Servicios Docker Compose detenidos y removidos exitosamente desde '{STATIC_DOCKER_COMPOSE_PATH}'.")
+        print_info(output)
+        log_action("Docker Compose", "Down", f"Servicios detenidos desde '{STATIC_DOCKER_COMPOSE_PATH}'.")
+    else:
+        print_error(f"Error al detener servicios Docker Compose: {output}")
+        log_action("Docker Compose", "Down", f"Error al detener servicios desde '{STATIC_DOCKER_COMPOSE_PATH}': {output}")
+
+def docker_compose_build():
+    """
+    Reconstruye las imágenes de los servicios definidos en el archivo Docker Compose de la ruta estática.
+    """
+    print_header("Docker Compose: Reconstruir Imágenes")
+
+    if not os.path.exists(STATIC_DOCKER_COMPOSE_PATH):
+        print_error(f"Error: Archivo Docker Compose no encontrado en '{STATIC_DOCKER_COMPOSE_PATH}'.")
+        log_action("Docker Compose", "Build", f"Error: Archivo no encontrado en '{STATIC_DOCKER_COMPOSE_PATH}'.")
+        return
+
+    command = f"docker compose -f \"{STATIC_DOCKER_COMPOSE_PATH}\" build"
+    
+    print_info(f"Reconstruyendo imágenes Docker Compose desde '{STATIC_DOCKER_COMPOSE_PATH}'...")
+    output, status = execute_command(command, sudo=True)
+
+    if status == 0:
+        print_success(f"Imágenes Docker Compose reconstruidas exitosamente desde '{STATIC_DOCKER_COMPOSE_PATH}'.")
+        print_info(output)
+        log_action("Docker Compose", "Build", f"Imágenes reconstruidas desde '{STATIC_DOCKER_COMPOSE_PATH}'.")
+    else:
+        print_error(f"Error al reconstruir imágenes Docker Compose: {output}")
+        log_action("Docker Compose", "Build", f"Error al reconstruir imágenes desde '{STATIC_DOCKER_COMPOSE_PATH}': {output}")
 
 #Menu de docker principal
 def docker_menu():
-    """Muestra el menú de opciones para la gestión de Docker."""
+    """
+    Muestra el menú de administración de Docker en la consola.
+    """
     while True:
         clear_screen()
-        print_header("Gestión de Docker")
+        print_header("Administración de Docker")
         options = {
-            "1": "Listar Contenedores",
-            "2": "Iniciar Contenedor",
-            "3": "Detener Contenedor",
-            "4": "Reiniciar Contenedor",
-            "5": "Eliminar Contenedor",
-            "6": "Ver Logs de Contenedor",
-            "7": "Ejecutar Comando en Contenedor",
-            "8": "Limpiar Imágenes No Utilizadas",            
-            "9": "Levantar Docker Compose (up -d)", # Nueva opción
-            "10": "Detener Docker Compose (down)",
+            "1": "Listar Contenedores Docker",
+            "2": "Iniciar Contenedor Docker",
+            "3": "Detener Contenedor Docker",
+            "4": "Remover Contenedor Docker",
+            "5": "Ejecutar Comando en Contenedor",
+            "6": "Docker Compose: Iniciar Servicios (Up)", # Nueva opción
+            "7": "Docker Compose: Detener Servicios (Down)", # Nueva opción
+            "8": "Docker Compose: Reconstruir Imágenes (Build)", # Nueva opción
             "0": "Volver al Menú Principal"
         }
-        from utils.display import print_menu # Importación local para evitar circular si display usa docker_management
         print_menu(options)
 
         choice = get_user_input("Seleccione una opción")
@@ -294,35 +396,26 @@ def docker_menu():
         if choice == '1':
             list_docker_containers()
         elif choice == '2':
-            container_id_name = get_user_input("Ingrese el ID o nombre del contenedor a iniciar")
-            start_docker_container(container_id_name)
+            container_name = get_user_input("Ingrese el nombre o ID del contenedor a iniciar")
+            start_docker_container(container_name)
         elif choice == '3':
-            container_id_name = get_user_input("Ingrese el ID o nombre del contenedor a detener")
-            stop_docker_container(container_id_name)
+            container_name = get_user_input("Ingrese el nombre o ID del contenedor a detener")
+            stop_docker_container(container_name)
         elif choice == '4':
-            container_id_name = get_user_input("Ingrese el ID o nombre del contenedor a reiniciar")
-            restart_docker_container(container_id_name)
+            container_name = get_user_input("Ingrese el nombre o ID del contenedor a remover")
+            confirm = get_user_input(f"¿Está seguro de que desea remover '{container_name}'? (s/N)")
+            remove_docker_container(container_name, confirm)
         elif choice == '5':
-            container_id_name = get_user_input("Ingrese el ID o nombre del contenedor a eliminar")
-            remove_docker_container(container_id_name) # La confirmación se maneja dentro de la función
+            container_name = get_user_input("Ingrese el nombre o ID del contenedor")
+            command_to_execute = get_user_input("Ingrese el comando a ejecutar dentro del contenedor")
+            execute_command_in_container(container_name, command_to_execute)
         elif choice == '6':
-            container_id_name = get_user_input("Ingrese el ID o nombre del contenedor para ver sus logs")
-            num_lines = get_user_input("Ingrese el número de líneas (dejar vacío para todas)")
-            view_docker_logs(container_id_name, num_lines)
+            docker_compose_up()
         elif choice == '7':
-            container_id_name = get_user_input("Ingrese el ID o nombre del contenedor")
-            command_to_exec = get_user_input(f"Ingrese el comando a ejecutar en '{container_id_name}' (ej: ls -l /app)")
-            exec_docker_command(container_id_name, command_to_exec)
+            docker_compose_down()
         elif choice == '8':
-            clean_docker_images() # La confirmación se maneja dentro de la función
-        elif choice == '9': # Nueva opción para docker-compose up
-            compose_path = "modules\docker\docker-compose.yml"
-            deploy_docker_compose(compose_path)
-        elif choice == '10': # Nueva opción para docker-compose down            
-            compose_path = "modules\docker\docker-compose.yml"
-            stop_docker_compose(compose_path)
+            docker_compose_build()
         elif choice == '0':
-            print_info("Volviendo al Menú Principal...")
             break
         else:
             print_error("Opción inválida. Por favor, intente de nuevo.")

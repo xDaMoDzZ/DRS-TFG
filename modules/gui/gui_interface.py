@@ -114,12 +114,14 @@ def gui_clean_docker_images(confirm: bool):
     confirm_str = 's' if confirm else 'n'
     return _run_module_function(docker_management.clean_docker_images, confirm_str)
 
-def gui_deploy_docker_compose(compose_file_path: str):
-    return _run_module_function(docker_management.deploy_docker_compose, compose_file_path)
+def gui_docker_compose_up():
+    return _run_module_function(docker_management.docker_compose_up)
 
-def gui_stop_docker_compose(compose_file_path: str):
-    return _run_module_function(docker_management.stop_docker_compose, compose_file_path)
+def gui_docker_compose_down():
+    return _run_module_function(docker_management.docker_compose_down)
 
+def gui_docker_compose_build():
+    return _run_module_function(docker_management.docker_compose_build)
 
 ## Servicios
 def gui_list_services():
@@ -140,7 +142,6 @@ def gui_enable_service(service_name: str):
 def gui_disable_service(service_name: str):
     return _run_module_function(service_management.disable_service, service_name)
 
-
 ## Paquetes
 def gui_update_system_packages():
     return _run_module_function(package_management.update_system_packages)
@@ -154,7 +155,6 @@ def gui_remove_package(package_name: str, confirm: bool):
 
 def gui_search_package(search_query: str):
     return _run_module_function(package_management.search_package, search_query)
-
 
 ## Usuarios y Grupos
 def gui_list_users():
@@ -196,7 +196,6 @@ def gui_test_network_speed():
 def gui_view_open_ports():
     return _run_module_function(network_management.view_open_ports)
 
-
 ## Monitorización de Recursos
 def gui_get_cpu_usage():
     return _run_module_function(resource_monitoring.get_cpu_usage)
@@ -212,7 +211,6 @@ def gui_get_network_stats():
 
 def gui_get_system_uptime():
     return _run_module_function(resource_monitoring.get_system_uptime)
-
 
 ## Disco y Particiones
 def gui_list_disk_partitions():
@@ -237,34 +235,45 @@ def gui_check_disk_health():
 
 
 ## Firewall
-def gui_check_firewall_status():
-    return _run_module_function(firewall_management.check_firewall_status)
+def gui_view_firewall_status():
+    return _run_module_function(firewall_management.view_firewall_status)
 
-def gui_enable_firewall():
-    return _run_module_function(firewall_management.enable_firewall)
+def gui_enable_firewall(confirm_checkbox: bool):
+    confirm_input = 's' if confirm_checkbox else 'n'
+    return _run_module_function(firewall_management.enable_firewall, confirm_input)
 
-def gui_disable_firewall():
-    return _run_module_function(firewall_management.disable_firewall)
-
-def gui_allow_port(port: str, protocol: str):
-    return _run_module_function(firewall_management.allow_port, port, protocol)
-
-def gui_deny_port(port: str, protocol: str):
-    return _run_module_function(firewall_management.deny_port, port, protocol)
-
-def gui_allow_app(app_name: str):
-    return _run_module_function(firewall_management.allow_app, app_name)
-
-def gui_deny_app(app_name: str):
-    return _run_module_function(firewall_management.deny_app, app_name)
+def gui_disable_firewall(confirm_checkbox: bool):
+    confirm_input = 's' if confirm_checkbox else 'n'
+    return _run_module_function(firewall_management.disable_firewall, confirm_input)
 
 def gui_list_firewall_rules():
     return _run_module_function(firewall_management.list_firewall_rules)
 
-def gui_remove_firewall_rule(rule_id: str, confirm: bool):
-    confirm_str = 's' if confirm else 'n'
-    return _run_module_function(firewall_management.remove_firewall_rule, rule_id, confirm_str)
+def gui_add_allow_port_rule_gui(rule_name: str, port: str, protocol: str, direction: str):
+    return _run_module_function(firewall_management.add_allow_port_rule, rule_name, port, protocol, direction)
 
+def gui_add_deny_port_rule_gui(rule_name: str, port: str, protocol: str, direction: str):
+    return _run_module_function(firewall_management.add_deny_port_rule, rule_name, port, protocol, direction)
+
+def gui_delete_firewall_rule_gui(rule_name: str, port: str, protocol: str, confirm_checkbox: bool):
+    confirm_input = 's' if confirm_checkbox else 'n'
+    return _run_module_function(firewall_management.delete_allow_port_rule, rule_name, port, protocol, confirm_input)
+
+def gui_add_app_rule_gui(rule_name: str, app_path: str, action: str = "allow", direction: str = "in"):
+    return _run_module_function(firewall_management.add_app_rule, rule_name, app_path, action, direction)
+
+def gui_deny_app_rule_gui(rule_name: str, app_path: str, action: str = "block", direction: str = "in"):
+    return _run_module_function(firewall_management.add_app_rule, rule_name, app_path, action, direction)
+
+def gui_delete_app_rule_gui(rule_name: str, confirm_checkbox: bool):
+    confirm_input = 's' if confirm_checkbox else 'n'
+    return _run_module_function(firewall_management.delete_app_rule, rule_name, confirm_input)
+
+def gui_show_rule_by_name_gui(rule_name: str):
+    return _run_module_function(firewall_management.show_rule_by_name, rule_name)
+
+def gui_generate_firewall_log_gui():
+    return _run_module_function(firewall_management.generate_firewall_log)
 
 # --- Creación de la interfaz con Gradio ---
 
@@ -473,57 +482,158 @@ def create_gradio_interface():
                 output_docker_clean = gr.Markdown()
                 clean_images_btn.click(gui_clean_docker_images, inputs=[confirm_clean_images], outputs=output_docker_clean)
 
-            with gr.Accordion("Docker Compose", open=False):
-                compose_file_path = gr.Textbox(label="Ruta al archivo docker-compose.yml (ruta absoluta)")
-                deploy_compose_btn = gr.Button("Levantar Servicios (up -d)")
-                stop_compose_btn = gr.Button("Detener y Eliminar Servicios (down)")
+            with gr.Accordion("Docker Compose", open=False):                                
+                with gr.Row():
+                    deploy_compose_btn = gr.Button("Levantar Servicios (Up -d)")
+                    stop_compose_btn = gr.Button("Detener y Eliminar Servicios (Down)")
+                    build_compose_btn = gr.Button("Reconstruir Imágenes (Build)")
+                
                 output_docker_compose = gr.Markdown()
-                deploy_compose_btn.click(gui_deploy_docker_compose, inputs=[compose_file_path], outputs=output_docker_compose)
-                stop_compose_btn.click(gui_stop_docker_compose, inputs=[compose_file_path], outputs=output_docker_compose)
+                deploy_compose_btn.click(gui_docker_compose_up, inputs=None, outputs=output_docker_compose)
+                stop_compose_btn.click(gui_docker_compose_down, inputs=None, outputs=output_docker_compose)
+                build_compose_btn.click(gui_docker_compose_build, inputs=None, outputs=output_docker_compose)
 
-
-        # --- Pestaña de Firewall ---
+        # --- Pestaña de Firewall Actualizada ---
         with gr.Tab("Firewall"):
             gr.Markdown("## Administración de Firewall")
+
+            # Acordeón 1: Estado y Control General
             with gr.Accordion("Estado y Control del Firewall", open=True):
+                gr.Markdown("### Estado del Firewall")
                 check_firewall_btn = gr.Button("Ver Estado del Firewall")
-                output_firewall_status = gr.Markdown()
-                check_firewall_btn.click(gui_check_firewall_status, inputs=None, outputs=output_firewall_status)
+                output_firewall_status = gr.Markdown() # Salida específica para estado
+                check_firewall_btn.click(gui_view_firewall_status, inputs=None, outputs=output_firewall_status)
 
-                enable_firewall_btn = gr.Button("Habilitar Firewall")
-                disable_firewall_btn = gr.Button("Deshabilitar Firewall")
-                output_firewall_toggle = gr.Markdown()
-                enable_firewall_btn.click(gui_enable_firewall, inputs=None, outputs=output_firewall_toggle)
-                disable_firewall_btn.click(gui_disable_firewall, inputs=None, outputs=output_firewall_toggle)
+                gr.Markdown("### Habilitar/Deshabilitar Firewall")
+                gr.Warning("⚠️ Estas operaciones requieren privilegios y pueden afectar la conectividad. Úselas con precaución.")
+                with gr.Row():
+                    enable_firewall_confirm = gr.Checkbox(label="Confirmar Habilitación", info="Marque para habilitar el firewall.", scale=1)
+                    enable_firewall_btn = gr.Button("Habilitar Firewall", scale=2)
+                with gr.Row():
+                    disable_firewall_confirm = gr.Checkbox(label="Confirmar Deshabilitación", info="Marque para deshabilitar el firewall. Esto puede dejar su sistema vulnerable.", scale=1)
+                    disable_firewall_btn = gr.Button("Deshabilitar Firewall", scale=2)
+                output_firewall_toggle = gr.Markdown() # Salida específica para habilitar/deshabilitar
+                
+                enable_firewall_btn.click(gui_enable_firewall, inputs=[enable_firewall_confirm], outputs=output_firewall_toggle)
+                disable_firewall_btn.click(gui_disable_firewall, inputs=[disable_firewall_confirm], outputs=output_firewall_toggle)
 
+
+            # Acordeón 2: Gestión de Reglas por Puerto
             with gr.Accordion("Gestión de Reglas por Puerto", open=False):
-                port_rule_port = gr.Textbox(label="Número de Puerto")
-                port_rule_protocol = gr.Radio(["tcp", "udp", "both"], label="Protocolo", value="tcp")
-                allow_port_btn = gr.Button("Permitir Puerto")
-                deny_port_btn = gr.Button("Denegar Puerto")
-                output_port_rule = gr.Markdown()
-                allow_port_btn.click(gui_allow_port, inputs=[port_rule_port, port_rule_protocol], outputs=output_port_rule)
-                deny_port_btn.click(gui_deny_port, inputs=[port_rule_port, port_rule_protocol], outputs=output_port_rule)
+                gr.Markdown("### Añadir/Denegar Puerto")
+                add_port_rule_name = gr.Textbox(label="Nombre de la Regla (ej: 'Servidor_Web_80')", placeholder="Campo obligatorio")
+                add_port_number = gr.Textbox(label="Número de Puerto (ej: 80, 8080)", placeholder="Campo obligatorio")
+                add_port_protocol = gr.Radio(["tcp", "udp", "any"], label="Protocolo", value="tcp")
+                add_port_direction = gr.Radio(["in", "out", "both"], label="Dirección", value="in", info="La dirección 'both' es para comodidad, se creará una regla 'in' y otra 'out' si el sistema lo soporta.")
+                
+                with gr.Row():
+                    add_allow_port_btn = gr.Button("Añadir Regla (Permitir)")
+                    add_deny_port_btn = gr.Button("Añadir Regla (Denegar)")
+                output_port_rule_add = gr.Markdown() # Salida específica para añadir reglas de puerto
 
-            with gr.Accordion("Gestión de Reglas por Aplicación (Windows/UFW)", open=False):
-                app_rule_name = gr.Textbox(label="Nombre de la Aplicación")
-                allow_app_btn = gr.Button("Permitir Aplicación")
-                deny_app_btn = gr.Button("Denegar Aplicación")
-                output_app_rule = gr.Markdown()
-                allow_app_btn.click(gui_allow_app, inputs=[app_rule_name], outputs=output_app_rule)
-                deny_app_btn.click(gui_deny_app, inputs=[app_rule_name], outputs=output_app_rule)
+                # Funciones para permitir/denegar puerto
+                def allow_port_wrapper(name, port, protocol, direction):
+                    if direction == "both":
+                        result_in = gui_add_allow_port_rule_gui(name + "_IN", port, protocol, "in")
+                        result_out = gui_add_allow_port_rule_gui(name + "_OUT", port, protocol, "out")
+                        return result_in + "\n" + result_out # Concatenar resultados
+                    else:
+                        return gui_add_allow_port_rule_gui(name, port, protocol, direction)
+                
+                def deny_port_wrapper(name, port, protocol, direction):
+                    if direction == "both":
+                        result_in = gui_add_deny_port_rule_gui(name + "_IN", port, protocol, "in")
+                        result_out = gui_add_deny_port_rule_gui(name + "_OUT", port, protocol, "out")
+                        return result_in + "\n" + result_out
+                    else:
+                        return gui_add_deny_port_rule_gui(name, port, protocol, direction)
 
+                add_allow_port_btn.click(
+                    allow_port_wrapper, # Usamos el wrapper para manejar 'both'
+                    inputs=[add_port_rule_name, add_port_number, add_port_protocol, add_port_direction],
+                    outputs=output_port_rule_add
+                )
+                add_deny_port_btn.click(
+                    deny_port_wrapper, # Usamos el wrapper para manejar 'both'
+                    inputs=[add_port_rule_name, add_port_number, add_port_protocol, add_port_direction],
+                    outputs=output_port_rule_add
+                )
+
+            # Acordeón 3: Gestión de Reglas por Aplicación
+            with gr.Accordion("Gestión de Reglas por Aplicación (Solo Windows)", open=False):
+                gr.Markdown("### Añadir/Denegar Aplicación")
+                gr.Info("Esta funcionalidad está diseñada principalmente para Windows. En Linux, la gestión por aplicación es diferente (perfiles UFW, etc.).")
+                add_app_rule_name = gr.Textbox(label="Nombre de la Regla", placeholder="Ej: 'Permitir_Navegador'")
+                add_app_path = gr.Textbox(label="Ruta Completa de la Aplicación (Ej: C:\\Program Files\\App\\app.exe)", placeholder="Campo obligatorio")
+                add_app_direction = gr.Radio(["in", "out"], label="Dirección", value="in")
+                
+                with gr.Row():
+                    add_allow_app_btn = gr.Button("Añadir Regla (Permitir Aplicación)")
+                    add_deny_app_btn = gr.Button("Añadir Regla (Denegar Aplicación)")
+                output_app_rule_add = gr.Markdown() # Salida específica para añadir reglas de app
+
+                add_allow_app_btn.click(
+                    lambda name, path, direction: gui_add_app_rule_gui(name, path, "allow", direction), # Lambda para pasar 'allow'
+                    inputs=[add_app_rule_name, add_app_path, add_app_direction],
+                    outputs=output_app_rule_add
+                )
+                add_deny_app_btn.click(
+                    lambda name, path, direction: gui_deny_app_rule_gui(name, path, "block", direction), # Lambda para pasar 'block'
+                    inputs=[add_app_rule_name, add_app_path, add_app_direction],
+                    outputs=output_app_rule_add
+                )
+
+            # Acordeón 4: Listar y Eliminar Reglas (General)
             with gr.Accordion("Listar y Eliminar Reglas", open=False):
+                gr.Markdown("### Listar Todas las Reglas")
                 list_firewall_rules_btn = gr.Button("Listar Reglas del Firewall")
-                output_list_rules = gr.Markdown()
+                output_list_rules = gr.Markdown() # Salida específica para listar reglas
                 list_firewall_rules_btn.click(gui_list_firewall_rules, inputs=None, outputs=output_list_rules)
 
-                remove_rule_id = gr.Textbox(label="ID de la Regla a Eliminar (Solo Windows)")
-                confirm_remove_rule = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación de la regla")
-                remove_rule_btn = gr.Button("Eliminar Regla")
-                output_remove_rule = gr.Markdown()
-                remove_rule_btn.click(gui_remove_firewall_rule, inputs=[remove_rule_id, confirm_remove_rule], outputs=output_remove_rule)
+                gr.Markdown("### Eliminar Regla por Nombre/Puerto")
+                gr.Info("Para Windows, use el Nombre de la Regla. Para Linux (UFW), el Puerto y Protocolo son clave. Si no está seguro, liste las reglas primero.")
+                delete_rule_name = gr.Textbox(label="Nombre de la Regla (Windows) / (Opcional, para Linux)", placeholder="Ej: 'Permitir_SSH'")
+                delete_rule_port = gr.Textbox(label="Puerto (Linux UFW / Opcional)", placeholder="Ej: 22")
+                delete_rule_protocol = gr.Radio(["tcp", "udp", "any"], label="Protocolo (Linux UFW / Opcional)", value="any")
+                
+                with gr.Row():
+                    delete_rule_confirm = gr.Checkbox(label="Confirmar Eliminación", info="Marque para confirmar la eliminación de la regla.", scale=1)
+                    delete_rule_btn = gr.Button("Eliminar Regla", scale=2)
+                output_delete_rule = gr.Markdown() # Salida específica para eliminar reglas
 
+                delete_rule_btn.click(
+                    gui_delete_firewall_rule_gui,
+                    inputs=[delete_rule_name, delete_rule_port, delete_rule_protocol, delete_rule_confirm],
+                    outputs=output_delete_rule
+                )
+                
+                gr.Markdown("### Eliminar Regla de Aplicación (Solo Windows)")
+                delete_app_rule_name = gr.Textbox(label="Nombre de la Regla de Aplicación a Eliminar", placeholder="Ej: 'Permitir_Navegador'")
+                with gr.Row():
+                    delete_app_rule_confirm = gr.Checkbox(label="Confirmar Eliminación de Regla de Aplicación", info="Marque para confirmar.", scale=1)
+                    delete_app_rule_btn = gr.Button("Eliminar Regla de Aplicación", scale=2)
+                output_delete_app_rule = gr.Markdown() # Salida específica para eliminar reglas de app
+                
+                delete_app_rule_btn.click(
+                    gui_delete_app_rule_gui,
+                    inputs=[delete_app_rule_name, delete_app_rule_confirm],
+                    outputs=output_delete_app_rule
+                )
+                
+            # Acordeón 5: Mostrar Regla por Nombre (Consolidado)
+            with gr.Accordion("Buscar Regla por Nombre", open=False):
+                gr.Info("Útil principalmente en Windows. En Linux, se listarán todas las reglas para búsqueda manual.")
+                search_rule_name_input = gr.Textbox(label="Nombre de la Regla a Buscar")
+                search_rule_by_name_btn = gr.Button("Mostrar Regla por Nombre")
+                output_search_rule = gr.Markdown() # Salida específica para búsqueda por nombre
+                search_rule_by_name_btn.click(gui_show_rule_by_name_gui, inputs=[search_rule_name_input], outputs=output_search_rule)
+
+
+            # Acordeón 6: Generar Log (Consolidado)
+            with gr.Accordion("Generar Log de Firewall", open=False):
+                generate_firewall_log_btn = gr.Button("Generar Log Completo del Firewall")
+                output_generate_log = gr.Markdown() # Salida específica para log
+                generate_firewall_log_btn.click(gui_generate_firewall_log_gui, inputs=None, outputs=output_generate_log)
 
         # --- Pestaña de Disco ---
         with gr.Tab("Disco"):
