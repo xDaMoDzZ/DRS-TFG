@@ -60,11 +60,15 @@ def relaunch_as_admin():
 def main_menu():
     """
     Muestra el menú principal de la aplicación de administración de sistemas.
+    Las opciones se adaptan al sistema operativo.
     """
+    current_os = get_os_type()
+
     while True:
         clear_screen()
-        print_header(f"Administración de Sistemas ({get_os_type().capitalize()})")
+        print_header(f"Administración de Sistemas ({current_os.capitalize()})")
         
+        # LIsta de opciones
         options = {
             "1": "Administración de Usuarios y Grupos",
             "2": "Administración de Redes",
@@ -74,13 +78,21 @@ def main_menu():
             "6": "Gestión de Procesos",
             "7": "Gestión de Docker",
             "8": "Gestión de Servicios/Daemons",
-            "9": "Gestión de Paquetes/Software",
             "0": "Salir"
         }
-        print_menu(options)
+
+        if current_os == 'linux':
+            options["9"] = "Gestión de Paquetes/Software"
+        
+        sorted_options = sorted(options.items(), key=lambda x: int(x[0]) if x[0].isdigit() else float('inf'))
+        
+        display_options = {k: v for k, v in sorted_options}
+
+        print_menu(display_options)
 
         choice = get_user_input("Seleccione una opción")
         
+        #Lista de opciones
         if choice == '1':
             user_group_management.user_group_menu()
         elif choice == '2':
@@ -88,7 +100,7 @@ def main_menu():
         elif choice == '3':
             resource_monitoring.resource_monitoring_menu()
         elif choice == '4':
-            disk_partition_management.disk_partition_menu()
+            disk_partition_management.disk_partition_menu() 
         elif choice == '5':
             firewall_management.firewall_menu()
         elif choice == '6':
@@ -98,7 +110,11 @@ def main_menu():
         elif choice == '8':
             service_management.service_menu()
         elif choice == '9':
-            package_management.package_menu()
+            if current_os == 'linux':
+                package_management.package_menu()
+            else:
+                print_error("La gestión de paquetes/software está disponible solo para sistemas Linux.")
+                get_user_input("Presione Enter para continuar...")
         elif choice == '0':
             print_header("Saliendo del script. ¡Hasta luego!")
             sys.exit()
@@ -111,7 +127,5 @@ if __name__ == "__main__":
     if not is_admin():
         print("Detectado: No se está ejecutando como administrador/root.")
         relaunch_as_admin()
-        # En caso de fallo inesperado en el relanzamiento, nos aseguramos de salir.
-        # Si el relanzamiento es exitoso, el proceso original ya habrá salido.
         sys.exit(1) 
     main_menu()
