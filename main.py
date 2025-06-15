@@ -82,13 +82,9 @@ def main_menu():
         }
 
         if current_os == 'linux':
-            options["9"] = "Gestión de Paquetes/Software"
+            options["9"] = "Gestión de Paquetes/Software"        
         
-        sorted_options = sorted(options.items(), key=lambda x: int(x[0]) if x[0].isdigit() else float('inf'))
-        
-        display_options = {k: v for k, v in sorted_options}
-
-        print_menu(display_options)
+        print_menu(options)
 
         choice = get_user_input("Seleccione una opción")
         
