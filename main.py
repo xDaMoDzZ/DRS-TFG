@@ -80,7 +80,7 @@ def main_menu():
             "8": "Gestión de Servicios/Daemons",
             "9": "Gestión de Paquetes/Software",
             "0": "Salir"
-        }
+            }
         else:
             options = {
             "1": "Administración de Usuarios y Grupos",

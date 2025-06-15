@@ -44,31 +44,36 @@ def package_menu():
             print_error("Opción inválida. Por favor, intente de nuevo.")
         get_user_input("Presione Enter para continuar...")
 
+
 def _get_package_manager():
     """
     Determina el gestor de paquetes del sistema operativo (solo Linux).
-    Retorna 'apt', 'yum'/'dnf', o None si no es Linux o no se detecta.
+    Retorna 'apt', 'dnf', 'yum', o None si no es Linux o no se detecta.
+    Prioriza 'dnf' sobre 'yum'.
     """
     os_type = get_os_type()
     if os_type == 'linux':
         if os.path.exists('/etc/debian_version'):
             return 'apt'
         elif os.path.exists('/etc/redhat-release'):
-            # Prefer dnf on modern RedHat/Fedora, fallback to yum
+            # Check for dnf first, then yum
             output, status = execute_command("which dnf")
             if status == 0:
                 return 'dnf'
-            return 'yum'
-    return None
+            output, status = execute_command("which yum")
+            if status == 0:
+                return 'yum'
+    return None # Returns None for Windows or unsupported Linux distros
 
 def _unsupported_os_message(operation: str):
     """Prints a message for unsupported OS/package manager."""
-    print_error(f"Operación de gestión de paquetes '{operation}' no soportada en este sistema operativo (solo Linux compatible con apt/yum/dnf).")
+    print_error(f"Operación de gestión de paquetes '{operation}' no soportada en este sistema operativo (solo Linux compatible con apt/dnf/yum).")
     log_action("PackageManager", operation, "Operación no soportada: OS no es Linux o gestor no detectado.")
 
 def list_installed_packages():
     """
     Lista los paquetes instalados en el sistema (solo Linux).
+    Usa comandos más eficientes como 'dpkg -l' o 'rpm -qa'.
     Imprime la salida para ser capturada por la GUI.
     """
     print_header("Listar Paquetes Instalados")
@@ -77,18 +82,27 @@ def list_installed_packages():
     status = 1
     
     if manager == 'apt':
-        print_info("Listando paquetes instalados (apt list --installed)...")
-        output, status = execute_command("apt list --installed")
-    elif manager in ['yum', 'dnf']:
-        print_info(f"Listando paquetes instalados ({manager} list installed)...")
-        output, status = execute_command(f"{manager} list installed")
+        print_info("Listando paquetes instalados (dpkg -l)...")
+        output, status = execute_command("dpkg -l | grep '^ii'")
+        if status == 0 and not output.strip():
+             print_info("No se encontraron paquetes instalados (o la salida de grep está vacía).")
+             status = 0
+    elif manager == 'dnf':
+        print_info("Listando paquetes instalados (dnf list installed)...")
+        output, status = execute_command("dnf list installed")
+    elif manager == 'yum':
+        print_info("Listando paquetes instalados (yum list installed)...")
+        output, status = execute_command("yum list installed")
     else:
         _unsupported_os_message("listar paquetes")
-        return # Exit early
+        return
 
     if status == 0:
         print_success("Paquetes instalados:")
-        print("```\n" + output + "\n```")
+        if output.strip():
+            print("```\n" + output + "\n```")
+        else:
+            print_info("No se encontraron paquetes instalados o la lista está vacía.")
         log_action("PackageManager", "List Packages", "Paquetes listados exitosamente.")
     else:
         print_error(f"Error al listar paquetes: {output}")
@@ -97,6 +111,7 @@ def list_installed_packages():
 def search_package(package_name: str):
     """
     Busca un paquete por nombre (solo Linux).
+    Usa 'apt-cache search' o 'dnf search'.
     Imprime la salida para ser capturada por la GUI.
     """
     if not package_name:
@@ -109,9 +124,9 @@ def search_package(package_name: str):
     status = 1
 
     if manager == 'apt':
-        print_info(f"Buscando '{package_name}' (apt search {package_name})...")
-        output, status = execute_command(f"apt search {package_name}")
-    elif manager in ['yum', 'dnf']:
+        print_info(f"Buscando '{package_name}' (apt-cache search {package_name})...")
+        output, status = execute_command(f"apt-cache search {package_name}")
+    elif manager in ['dnf', 'yum']:
         print_info(f"Buscando '{package_name}' ({manager} search {package_name})...")
         output, status = execute_command(f"{manager} search {package_name}")
     else:
@@ -120,7 +135,10 @@ def search_package(package_name: str):
     
     if status == 0:
         print_success(f"Resultados de búsqueda para '{package_name}':")
-        print("```\n" + output + "\n```")
+        if output.strip():
+            print("```\n" + output + "\n```")
+        else:
+            print_info(f"No se encontraron resultados para '{package_name}'.")
         log_action("PackageManager", "Search Package", f"Búsqueda de '{package_name}' exitosa.")
     else:
         print_error(f"Error al buscar paquete: {output}")
@@ -129,6 +147,7 @@ def search_package(package_name: str):
 def install_package(package_name: str):
     """
     Instala un paquete específico (solo Linux).
+    Asegúrate de que la instalación con 'sudo' sea interactiva si es necesario o maneja prompts.
     Imprime la salida para ser capturada por la GUI.
     """
     if not package_name:
@@ -139,11 +158,11 @@ def install_package(package_name: str):
     manager = _get_package_manager()
     output = ""
     status = 1
-
+    
     if manager == 'apt':
         print_info(f"Instalando '{package_name}' (sudo apt install -y {package_name})...")
         output, status = execute_command(f"sudo apt install -y {package_name}")
-    elif manager in ['yum', 'dnf']:
+    elif manager in ['dnf', 'yum']:
         print_info(f"Instalando '{package_name}' (sudo {manager} install -y {package_name})...")
         output, status = execute_command(f"sudo {manager} install -y {package_name}")
     else:
@@ -161,6 +180,7 @@ def install_package(package_name: str):
 def remove_package(package_name: str):
     """
     Desinstala un paquete específico (solo Linux).
+    Usa 'sudo apt remove -y' o 'sudo dnf remove -y'.
     Imprime la salida para ser capturada por la GUI.
     """
     if not package_name:
@@ -175,7 +195,7 @@ def remove_package(package_name: str):
     if manager == 'apt':
         print_info(f"Desinstalando '{package_name}' (sudo apt remove -y {package_name})...")
         output, status = execute_command(f"sudo apt remove -y {package_name}")
-    elif manager in ['yum', 'dnf']:
+    elif manager in ['dnf', 'yum']:
         print_info(f"Desinstalando '{package_name}' (sudo {manager} remove -y {package_name})...")
         output, status = execute_command(f"sudo {manager} remove -y {package_name}")
     else:
@@ -193,6 +213,7 @@ def remove_package(package_name: str):
 def update_package_list():
     """
     Actualiza la lista de paquetes disponibles (solo Linux).
+    Usa 'sudo apt update' o 'sudo dnf check-update'.
     Imprime la salida para ser capturada por la GUI.
     """
     print_header("Actualizar Lista de Paquetes")
@@ -203,7 +224,7 @@ def update_package_list():
     if manager == 'apt':
         print_info("Actualizando lista de paquetes (sudo apt update)...")
         output, status = execute_command("sudo apt update")
-    elif manager in ['yum', 'dnf']:
+    elif manager in ['dnf', 'yum']:
         print_info(f"Actualizando lista de paquetes (sudo {manager} check-update)...")
         output, status = execute_command(f"sudo {manager} check-update")
     else:
@@ -221,6 +242,7 @@ def update_package_list():
 def upgrade_all_packages():
     """
     Actualiza todos los paquetes instalados a sus últimas versiones (solo Linux).
+    Usa 'sudo apt upgrade -y' o 'sudo dnf update -y'.
     Imprime la salida para ser capturada por la GUI.
     """
     print_header("Actualizar Todos los Paquetes")
@@ -231,7 +253,7 @@ def upgrade_all_packages():
     if manager == 'apt':
         print_info("Actualizando todos los paquetes (sudo apt upgrade -y)...")
         output, status = execute_command("sudo apt upgrade -y")
-    elif manager in ['yum', 'dnf']:
+    elif manager in ['dnf', 'yum']:
         print_info(f"Actualizando todos los paquetes (sudo {manager} update -y)...")
         output, status = execute_command(f"sudo {manager} update -y")
     else:
