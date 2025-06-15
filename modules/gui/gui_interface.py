@@ -277,8 +277,18 @@ def gui_generate_firewall_log_gui():
 
 # --- Creación de la interfaz con Gradio ---
 
+# --- Cargar CSS Externo ---
+# Ruta al archivo CSS. Asume que style.css está en el mismo directorio.
+css_file_path = "modules\gui\style.css"
+try:
+    with open(css_file_path, "r") as f:
+        custom_css = f.read()
+except FileNotFoundError:
+    print(f"Error: El archivo CSS '{css_file_path}' no se encontró. La interfaz se cargará sin estilos personalizados.")
+    custom_css = "" # Si el archivo no se encuentra, usa una cadena vacía para evitar errores
+
 def create_gradio_interface():
-    with gr.Blocks(title="System Administration Tool") as demo:
+    with gr.Blocks(title="System Administration Tool",css=custom_css) as demo:
         gr.Markdown(f"# Herramienta de Administración de Sistemas (GUI)")
         gr.Markdown(f"### Sistema Operativo Detectado: **{system_info_utils.get_os_type().capitalize()}**")
 

@@ -1,0 +1,164 @@
+/* style.css */
+
+/* Importar fuentes si las usas, por ejemplo Montserrat de Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap');
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    background-color: #1a202c; /* Fondo oscuro */
+    color: #E0E0E0;
+}
+.gradio-container {
+    background-color: #1a202c !important; /* Asegura que el contenedor principal también sea oscuro */
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+/* Aseguramos que el layout principal ocupe toda la pantalla */
+.main-layout {
+    height: 100vh;
+}
+.sidebar {
+    background-color: #2d3748; /* Azul grisáceo oscuro */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+    height: 100vh; /* Ocupa toda la altura */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+/* Estilo para los botones de la barra lateral */
+.sidebar-button { /* Usamos la clase personalizada elem_classes */
+    background-color: transparent;
+    color: #E0E0E0;
+    border: none;
+    padding: 15px 10px;
+    font-size: 1.1em;
+    font-weight: 600;
+    text-align: left;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+    width: 100%; /* Asegura que el botón ocupe todo el ancho de su contenedor */
+}
+.sidebar-button:hover {
+    background-color: #4a5568; /* Un gris más claro al pasar el ratón */
+}
+.exit-button {
+    margin-top: auto; /* Empuja el botón "Salir" al final */
+    color: #e74c3c; /* Rojo para el botón de salida */
+}
+.exit-button:hover {
+    background-color: #a04033;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #4a5568;
+    margin-bottom: 20px;
+}
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Centrar logo en la columna */
+    margin-bottom: 20px;
+}
+.logo-icon {
+    font-size: 2.5em; /* Tamaño del icono */
+    margin-right: 10px;
+    color: #3498db; /* Color primario */
+}
+.logo-text {
+    font-size: 2.2em; /* Tamaño del texto del logo */
+    font-weight: 800;
+    color: #E0E0E0;
+}
+.console-output {
+    background-color: #2d3748; /* Fondo más oscuro para la consola */
+    color: #90ee90; /* Verde claro para el texto */
+    font-family: 'monospace';
+    padding: 15px;
+    border-radius: 8px;
+    min-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #4a5568;
+    white-space: pre-wrap; /* Mantiene formato y permite que el texto se ajuste */
+    word-wrap: break-word; /* Rompe palabras largas */
+}
+.dark-mode-text {
+    color: #E0E0E0;
+}
+h1, h2, h3, h4, h5, h6 { /* Ajustar todos los encabezados */
+    color: #3498db; /* Color primario para encabezados */
+    font-weight: bold;
+}
+p {
+    color: #E0E0E0;
+}
+/* Si display.py genera los colores en Markdown con spans, esto es más robusto */
+.info-color { color: #add8e6; }
+.success-color { color: #2ecc71; }
+.error-color { color: #e74c3c; }
+.warning-color { color: #f1c40f; }
+
+pre {
+    background-color: #1e1e1e;
+    color: #add8e6; /* Un color claro para el código */
+    padding: 10px;
+    border-radius: 5px;
+    white-space: pre-wrap; /* Permite que el texto se ajuste */
+    word-wrap: break-word; /* Rompe palabras largas */
+}
+
+/* Estilos para los componentes generales de Gradio */
+.gr-text, .gr-textbox, .gr-button, .gr-checkbox, .gr-radio, .gr-dropdown {
+    background-color: #4a5568 !important; /* Fondo para inputs y otros componentes */
+    color: #E0E0E0 !important;
+    border-color: #6a5acd !important; /* Borde sutil */
+}
+.gr-button {
+    background-color: #3498db !important; /* Color primario para botones principales */
+    color: white !important;
+    font-weight: 600;
+}
+.gr-button:hover {
+    background-color: #217dbb !important;
+}
+.gr-tab-button {
+    background-color: #2d3748 !important; /* Color de fondo para las pestañas */
+    color: #E0E0E0 !important;
+    border-top-left-radius: 8px !important;
+    border-top-right-radius: 8px !important;
+}
+.gr-tab-button.selected {
+    background-color: #1a202c !important; /* Pestaña seleccionada */
+    color: #3498db !important; /* Color primario para el texto de la pestaña seleccionada */
+    border-bottom: 2px solid #3498db !important;
+}
+.gr-tab-content {
+    background-color: #1a202c !important; /* Contenido de la pestaña */
+    padding: 20px !important;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+.gr-accordion {
+    background-color: #2d3748 !important;
+    border-radius: 8px !important;
+    border: 1px solid #4a5568 !important;
+    margin-bottom: 10px;
+}
+.gr-accordion-header {
+    background-color: #4a5568 !important;
+    color: #E0E0E0 !important;
+    border-top-left-radius: 8px !important;
+    border-top-right-radius: 8px !important;
+    padding: 10px 15px !important;
+}
+.gr-accordion-content {
+    background-color: #1a202c !important;
+    padding: 15px !important;
+    border-bottom-left-radius: 8px !important;
+    border-bottom-right-radius: 8px !important;
+}
