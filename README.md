@@ -2,6 +2,9 @@
 
 ¡Bienvenido al **System Admin CLI**! Una herramienta minimalista de línea de comandos desarrollada en Python, diseñada para simplificar y unificar la administración de sistemas tanto en **Windows Server** como en **Linux Server**. Olvídate de recordar comandos específicos para cada sistema operativo; con System Admin CLI, tendrás un menú interactivo y elegante para gestionar tus servidores.
 
+# 💻 System Admin GUI
+Además, también he desarollado una interfaz más amigable con el usuario, centrándome en las pequeñas empresas (pymes) y en coste de la gestión informática en la que deben invertir. Gracias a ésta interfaz gráfica, estas pequeñas empresas podrán gestionar de forma más sencilla e intuitiva las labores y necesitades principales. **Disponible tanto en Windows como en Linux**.
+
 ---
 
 ## ✨ Características Principales
@@ -23,8 +26,8 @@ Sigue estos sencillos pasos para poner en marcha el System Admin CLI en tu servi
 Abre tu terminal y clona el repositorio de GitHub:
 
 ```bash
-git clone https://github.com/tu-usuario/system_admin_cli.git
-cd system_admin_cli
+git clone https://github.com/xDaMoDzZ/DRS-TFG.git
+cd DRS-TFG
 ```
 
 ### 2. Estructura del Proyecto
@@ -32,21 +35,34 @@ cd system_admin_cli
 Asegúrate de que la estructura de archivos sea la siguiente después de clonar:
 
 ```
-system_admin_cli/
+DRS-TFG/
 ├── main.py
 ├── utils/
-│   ├── __init__.py
 │   ├── display.py
 │   ├── system_info.py
-│   ├── logger.py
+│   └── logger.py
 ├── modules/
 │   ├── __init__.py
-│   ├── user_group_management.py
-│   ├── network_management.py
-│   ├── resource_monitoring.py
-│   ├── disk_partition_management.py
-│   ├── firewall_management.py
-│   ├── process_management.py
+│   ├── user/
+│   │   └── user_group_management.py
+│   ├── network/
+│   │   └── network_management.py
+│   ├── resource/
+│   │   └── resource_monitoring.py
+│   ├── disk/
+│   │   └── disk_partition_management.py
+│   ├── firewall/
+│   │   └── firewall_management.py
+│   ├── process/
+│   │   └── process_management.py
+│   ├── services
+│   │   └── service_management.py
+│   ├── package
+│   │   └── package_management.py
+│   ├── docker
+│   │   └── docker_management.py
+│   └── gui
+│       └── gui_interface.py
 ├── config.py
 ├── README.md
 └── LICENSE.md
