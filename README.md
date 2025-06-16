@@ -37,6 +37,8 @@ Asegúrate de que la estructura de archivos sea la siguiente después de clonar:
 ```
 DRS-TFG/
 ├── main.py
+├── install_requirements.py
+├── requirements.txt
 ├── utils/
 │   ├── display.py
 │   ├── system_info.py
@@ -60,7 +62,10 @@ DRS-TFG/
 │   ├── package
 │   │   └── package_management.py
 │   ├── docker
-│   │   └── docker_management.py
+│   │   ├── docker_management.py
+│   │   ├── docker-compose.yml
+│   │   └── html/
+│   │   │   └── index.html
 │   └── gui
 │       └── gui_interface.py
 ├── config.py
