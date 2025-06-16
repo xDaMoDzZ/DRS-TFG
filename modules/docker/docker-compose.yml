@@ -1,34 +1,87 @@
-#Lista de servicios a desplegar
+version: '3.9'
+
+networks:
+  lan:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.10.0/24
+  dmz:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.20.0/24
+
 services:
+  firewall:
+    image: debian:latest # Mejor especificar una versión estable
+    container_name: firewall
+    # Comandos para configurar el firewall:
+    # 1. Habilitar reenvío de paquetes (persistentemente)
+    # 2. Instalar iptables (si no viene por defecto en la imagen)
+    # 3. Aplicar las reglas de iptables.
+    # Usamos un script de entrada para asegurar que todo se configure al inicio.
+    command: /bin/bash -c "echo 'net.ipv4.ip_forward = 1' > /etc/sysctl.d/99-ip_forward.conf && sysctl -p && apt-get update && apt-get install -y iptables net-tools && /root/configure_iptables.sh && sleep infinity"
+    # Montar un volumen con el script de iptables para que el contenedor lo encuentre
+    volumes:
+      - ./firewall-config:/root:ro
+    networks:
+      lan:
+        ipv4_address: 192.168.10.1
+      dmz:
+        ipv4_address: 192.168.20.1
+    cap_add:
+      - NET_ADMIN # Necesario para iptables y forwarding
+      - NET_RAW # Útil para ciertas operaciones de red
+
   web:
     image: nginx:latest
-    container_name: simple_nginx_web
-    ports:
-      - "80:80"
-    volumes:
-      - nginx_logs:/var/log/nginx
+    container_name: web
     networks:
-      - app_network
-    restart: always
+      dmz:
+        ipv4_address: 192.168.20.2
+    volumes:
+      - ./html:/usr/share/nginx/html:ro
 
-  backend:
-    image: python:3.9-slim-buster
-    container_name: simple_flask_backend
-    command: bash -c "pip install Flask && flask run --host=0.0.0.0"
+  db:
+    image: mysql:5.7
+    container_name: db
     environment:
-      FLASK_APP: app.py
-      FLASK_ENV: development
-    volumes:
-      - ./app.py:/app/app.py
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: root_database
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
     networks:
-      - app_network
-    restart: on-failure
+      dmz:
+        ipv4_address: 192.168.20.3
 
-#Adaptador de red
-networks:
-  app_network:
-    driver: bridge
-    
-#Volumenes
-volumes:
-  nginx_logs:
+  dns:
+    image: andyshinn/dnsmasq
+    container_name: dns
+    command: ["--log-facility=-", "--address=/web.interna.local/192.168.20.2", "--no-resolv", "--server=8.8.8.8"]
+    networks:
+      lan:
+        ipv4_address: 192.168.10.53
+
+  cliente1:
+      image: ubuntu:latest
+      container_name: cliente1
+      # Configurar el gateway y el DNS. El DNS debe ser el contenedor 'dns'.
+      command: /bin/bash -c "echo 'nameserver 192.168.10.53' > /etc/resolv.conf && ip route add default via 192.168.10.1 && sleep infinity"
+      networks:
+        lan:
+          ipv4_address: 192.168.10.100
+      depends_on: # Asegura que el firewall y las dns estén corriendo
+        - firewall 
+        - dns
+
+  cliente2:
+      image: ubuntu:latest
+      container_name: cliente2
+      command: /bin/bash -c "echo 'nameserver 192.168.10.53' > /etc/resolv.conf && ip route add default via 192.168.10.1 && sleep infinity"
+      networks:
+        lan:
+          ipv4_address: 192.168.10.101
+      depends_on: # Asegura que el firewall y las dns estén corriendo
+        - firewall
+        - dns
