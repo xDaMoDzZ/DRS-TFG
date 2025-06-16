@@ -308,7 +308,7 @@ def docker_compose_up():
         return
 
     # Usamos -d para ejecutar en modo 'detached' (segundo plano)
-    command = f"docker compose -f \"{STATIC_DOCKER_COMPOSE_PATH}\" up -d"
+    command = f"docker-compose -f \"{STATIC_DOCKER_COMPOSE_PATH}\" up -d"
     
     print_info(f"Iniciando servicios Docker Compose desde '{STATIC_DOCKER_COMPOSE_PATH}'...")
     output, status = execute_command(command, sudo=True)
@@ -333,7 +333,7 @@ def docker_compose_down():
         return
 
     # Usamos --volumes para remover también volúmenes anónimos
-    command = f"docker compose -f \"{STATIC_DOCKER_COMPOSE_PATH}\" down --volumes"
+    command = f"docker-compose -f \"{STATIC_DOCKER_COMPOSE_PATH}\" down --volumes"
     
     print_info(f"Deteniendo servicios Docker Compose desde '{STATIC_DOCKER_COMPOSE_PATH}'...")
     output, status = execute_command(command, sudo=True)
@@ -357,7 +357,7 @@ def docker_compose_build():
         log_action("Docker Compose", "Build", f"Error: Archivo no encontrado en '{STATIC_DOCKER_COMPOSE_PATH}'.")
         return
 
-    command = f"docker compose -f \"{STATIC_DOCKER_COMPOSE_PATH}\" build"
+    command = f"docker-compose -f \"{STATIC_DOCKER_COMPOSE_PATH}\" build"
     
     print_info(f"Reconstruyendo imágenes Docker Compose desde '{STATIC_DOCKER_COMPOSE_PATH}'...")
     output, status = execute_command(command, sudo=True)
